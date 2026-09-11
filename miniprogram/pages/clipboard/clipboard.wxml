@@ -1,1 +1,79 @@
-<view class="placeholder-page">世界粘贴板 · Clipboard</view>
+<view class="clipboard-page">
+  <view class="nav">
+    <button class="back" bindtap="onBack" aria-label="返回现实捕捉页">‹</button>
+    <view class="nav__title">
+      <text>世界粘贴板</text>
+      <text class="nav__subtitle">World Clipboard</text>
+    </view>
+    <view class="nav__type">{{typeLabel}}</view>
+  </view>
+
+  <view class="hero">
+    <view class="hero__glow"></view>
+    <object-preview type="{{item.type}}" color-hex="{{colorHex}}" />
+    <view class="capture-badge"><text class="capture-badge__dot"></text>已复制到剪贴板</view>
+  </view>
+
+  <view wx:if="{{item.type === 'color'}}" class="color-data">
+    <view class="color-data__swatch" style="background: {{colorHex}};"></view>
+    <view>
+      <text class="color-data__hex">{{colorHex}}</text>
+      <text class="color-data__rgb">RGB · {{rgbText}}</text>
+    </view>
+  </view>
+
+  <view class="templates-section">
+    <view class="section-heading">
+      <view>
+        <text class="eyebrow">PASTE PLUGINS</text>
+        <text class="section-title">转换为创意模板</text>
+      </view>
+      <text class="section-index">01</text>
+    </view>
+
+    <view class="template-grid">
+      <view wx:for="{{templates}}" wx:key="id" class="template-cell template-cell--{{index < 3 ? 'third' : 'half'}}">
+        <template-card template="{{item}}" bindselect="onTemplateSelect" />
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showPerler}}" id="perler-result" class="perler-section">
+    <view class="section-heading">
+      <view>
+        <text class="eyebrow">PERLER RESULT</text>
+        <text class="section-title">32 × 32 拼豆图纸</text>
+      </view>
+      <text class="section-index">02</text>
+    </view>
+
+    <view class="perler-card">
+      <view class="perler-grid" aria-label="32乘32拼豆预览">
+        <view
+          wx:for="{{perler.cells}}"
+          wx:key="key"
+          class="bead {{item.empty ? 'bead--empty' : ''}}"
+          style="background: {{item.color}};"
+        ></view>
+      </view>
+
+      <view class="perler-meta">
+        <view class="meta-item"><text class="meta-label">GRID</text><text class="meta-value">{{perler.size}} × {{perler.size}}</text></view>
+        <view class="meta-item"><text class="meta-label">COLORS</text><text class="meta-value">{{perler.colors.length}}</text></view>
+        <view class="meta-item"><text class="meta-label">BEADS</text><text class="meta-value">{{perler.totalBeads}}</text></view>
+      </view>
+    </view>
+
+    <view class="palette-list">
+      <view wx:for="{{perler.colors}}" wx:key="id" class="palette-row">
+        <view class="palette-main">
+          <view class="palette-dot" style="background: {{item.hex}};"></view>
+          <view><text class="palette-name">{{item.name}}</text><text class="palette-code">{{item.id}} · {{item.hex}}</text></view>
+        </view>
+        <text class="palette-count">× {{item.count}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="footer">CTRL+C THE REAL WORLD · CTRL+V ANYWHERE</view>
+</view>
