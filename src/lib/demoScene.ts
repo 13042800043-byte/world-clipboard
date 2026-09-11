@@ -51,7 +51,7 @@ export function drawDemoScene(canvas: HTMLCanvasElement): void {
 
   context.fillStyle = 'rgba(244,247,245,.64)';
   context.font = `${Math.max(13, width * 0.014)}px ui-sans-serif, system-ui`;
-  context.fillText('点击物体，或开启摄像头后用 Pinch 抓取', width * 0.045, height * 0.08);
+  context.fillText('点击物体，模拟 Pinch 抓取', width * 0.045, height * 0.08);
 }
 
 export function renderDemoObject(
