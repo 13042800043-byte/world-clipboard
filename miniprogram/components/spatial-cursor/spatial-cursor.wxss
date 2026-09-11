@@ -1,0 +1,37 @@
+.cursor {
+  position: absolute;
+  z-index: 12;
+  width: 42rpx;
+  height: 42rpx;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: transform 100ms ease;
+}
+
+.cursor__dot {
+  position: absolute;
+  top: 13rpx;
+  left: 13rpx;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 3rpx rgba(17, 17, 17, 0.26);
+}
+
+.cursor__ring {
+  width: 40rpx;
+  height: 40rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 18rpx rgba(255, 255, 255, 0.55);
+}
+
+.cursor--GRABBED,
+.cursor--DRAGGING { transform: translate(-50%, -50%) scale(0.72); }
+
+.cursor--GRABBED .cursor__ring,
+.cursor--DRAGGING .cursor__ring {
+  border-width: 4rpx;
+  background: rgba(255, 255, 255, 0.2);
+}

@@ -1,0 +1,9 @@
+<view
+  wx:if="{{visible}}"
+  class="cursor cursor--{{gesture}}"
+  style="left: {{x * 100}}%; top: {{y * 100}}%;"
+  aria-hidden="true"
+>
+  <view class="cursor__dot"></view>
+  <view class="cursor__ring"></view>
+</view>

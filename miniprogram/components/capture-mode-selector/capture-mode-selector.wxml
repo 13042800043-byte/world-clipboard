@@ -1,0 +1,13 @@
+<view class="selector" aria-label="捕捉模式">
+  <button
+    wx:for="{{modes}}"
+    wx:key="id"
+    class="mode {{active === item.id ? 'mode--active' : ''}}"
+    data-mode="{{item.id}}"
+    bindtap="onModeTap"
+    aria-label="选择{{item.label}}模式"
+  >
+    <text class="mode__icon">{{item.icon}}</text>
+    <text>{{item.label}}</text>
+  </button>
+</view>
