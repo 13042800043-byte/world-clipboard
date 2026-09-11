@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+*.pem
+.codex-review/
+playwright-report/
+test-results/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
