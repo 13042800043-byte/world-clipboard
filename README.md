@@ -1,42 +1,95 @@
-# World Clipboard Demo
+# 世界粘贴板 / World Clipboard
 
-一个为吉客松准备的手机小程序交互原型：从“现实画面”抓取对象，放入世界粘贴板，再粘贴到数字工具中生成可执行结果。
+一个可直接导入微信开发者工具的原生微信小程序 Prototype。核心交互是 Promptless Interaction：动作本身就是 Prompt，让现实里的物体、颜色和轮廓像数字内容一样被 Copy / Paste。
 
-当前代码是可在手机和桌面浏览器运行的 H5 Demo，尚不是可提交审核的微信原生小程序包。它刻意使用内置模拟镜头，因此不用申请摄像头权限，也不依赖远程 AI 模型，适合在现场稳定演示完整闭环。
+## 微信小程序运行
 
-## Demo 流程
+1. 打开微信开发者工具，选择「导入项目」。
+2. 项目目录选择本仓库根目录（包含 `project.config.json` 的目录）。
+3. AppID 保持项目内的 `touristappid`，即可先在模拟器体验完整 Mock 流程；如需真机摄像头预览，替换为自己的小程序 AppID。
+4. 点击「编译」。首屏会直接进入 Camera Page。
 
-1. 在捕捉页选择 **物体 / 颜色 / 轮廓**。
-2. 点击小猫摆件，模拟一次 Pinch 抓取。
-3. 结果转换为统一的透明 RGBA Clipboard Item，并自动进入创作页。
-4. 点击 **拼豆模板**。
-5. 页面生成 20 × 20 拼豆图纸，以及按色号统计的材料清单。
-6. 点击左上角返回，可切换捕捉类型后重新体验。
+体验路径：
 
-## 本地运行
+```text
+Camera
+→ 选择 物体 / 颜色 / 轮廓
+→ 在画面中按住（模拟 Pinch）
+→ 拖动（Drag）
+→ 松开（Release / Copy）
+→ Clipboard
+→ 拼豆模板
+→ 32 × 32 拼豆图纸与色号统计
+```
 
-需要 Node.js 20+ 与 pnpm。
+Camera 页右上角的 `MOCK / CAMERA` 可以切换演示背景。开发者工具没有摄像头画面或真机权限尚未配置时，使用 Mock 背景仍可走通全部交互。
+
+## 当前完成
+
+- 原生 TypeScript / WXML / WXSS 工程与自定义双页面导航
+- 全屏后置 Camera 组件与 Debug Mock Scene
+- 物体、颜色、轮廓三种捕捉模式
+- Spatial Cursor 与独立 Gesture State Machine
+- Touch / Mouse 模拟 Pinch、Grab、Drag、Release
+- 目标吸附、缩放和飞入 Clipboard 的 Copy 动画
+- 统一 `ClipboardItem` 数据模型和内存 Store
+- Mock Hand Tracker、Mock Segmentation Adapter、后端 API 请求契约
+- Clipboard 内容预览与五个 Paste Plugin 入口
+- 独立 `/plugins/perler` Mock 插件，输出 32 × 32 网格和材料统计
+
+## Mock 开关
+
+配置位于 `miniprogram/config.ts`：
+
+```ts
+DEBUG_MODE
+USE_MOCK_HAND_TRACKING
+USE_MOCK_SEGMENTATION
+USE_MOCK_PERLER
+```
+
+这些开关让 UI 与视觉模型解耦。当前第一阶段全部启用，保证吉客松现场没有模型或网络时也能稳定演示。
+
+## 本地质量检查
+
+需要 Node.js 20+ 与 pnpm：
 
 ```bash
 pnpm install
+pnpm typecheck:miniprogram
+pnpm test:miniprogram
+```
+
+仓库仍保留前一版 H5 原型，运行方式为：
+
+```bash
 pnpm dev
 ```
 
-打开 <http://127.0.0.1:5173>。
+浏览器打开 <http://127.0.0.1:5173>。
 
-## 质量检查
+## 目录边界
 
-```bash
-pnpm test
-pnpm build
+```text
+miniprogram/
+├── pages/          # Camera / Clipboard 两个核心页面
+├── components/     # 模式选择、光标、模板卡片、对象预览
+├── interaction/    # Spatial Controller 与状态机
+├── vision/         # Hand / Segmentation / Color / Contour Adapter
+├── clipboard/      # 基础数据模型与 Store
+├── plugins/perler/ # 拼豆插件，不侵入 Clipboard 核心
+└── services/       # 真实视觉 API 占位
 ```
 
-## 当前边界与下一步
+## 下一阶段
 
-这个 Demo 验证的是产品交互和数据流，不冒充已经完成的计算机视觉版本。仓库中已实现带滞回和稳定帧判定的 pinch 状态机，下一阶段会把它接到 MediaPipe Hand Landmarker；之后再接入点提示分割，把模拟对象替换为摄像头中的真实物体。
+1. 将 `MockHandTracker` 替换为真机可运行的 21 点 Hand Tracking Adapter。
+2. 将 `MockSegmentationAdapter` 替换为 `POST /api/segment` 的点提示分割服务。
+3. 通过 Camera Frame Listener 校准预览裁切、旋转、镜像和坐标映射。
+4. 把拼豆插件从 Mock 图案升级为透明 PNG 的裁切、量化、色卡映射与网格生成。
 
-建议的实现顺序：微信小程序工程壳与 Camera 组件 → 手部关键点 → pinch 驱动抓取 → 点提示分割服务 → 多端同步。现场演示仍保留模拟模式作为降级方案。
+当前代码不会假装真实 AI 已经完成：第一阶段只负责把 SEE → PINCH → GRAB → COPY → CREATE 的产品闭环可靠跑通。
 
 ## 开源参考
 
-架构与交互借鉴了 AR Cut & Paste、pARallax、KineMouse、Google MediaPipe Web samples 和 Perler Beads Generator。当前实现为独立代码，详细归属见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+架构与交互研究参考了 AR Cut & Paste、pARallax、KineMouse、Google MediaPipe samples 和 Perler Beads Generator；当前代码为独立实现，归属与链接见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。

@@ -7,6 +7,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "test:miniprogram": "vitest run tests/miniprogram",
+    "typecheck:miniprogram": "tsc -p miniprogram/tsconfig.json --noEmit",
     "test:watch": "vitest",
     "lint": "tsc -b --pretty false"
   },
