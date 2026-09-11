@@ -12,7 +12,7 @@ describe('findDemoObjectAt', () => {
   });
 
   it('selects the cat figurine in the center of the scene', () => {
-    expect(findDemoObjectAt({ x: 0.5, y: 0.54 })?.id).toBe('cat');
+    expect(findDemoObjectAt({ x: 0.5, y: 0.65 })?.id).toBe('cat');
   });
 
   it('returns no object for empty space', () => {

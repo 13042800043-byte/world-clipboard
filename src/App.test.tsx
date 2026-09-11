@@ -23,19 +23,29 @@ vi.mock('./lib/demoScene', async () => {
   };
 });
 
-describe('World Clipboard demo flow', () => {
-  it('copies a demo object and pastes it into the Perler target', () => {
+describe('World Clipboard mini program flow', () => {
+  it('captures an object and generates a Perler template on the creation page', () => {
     render(<App />);
 
-    expect(screen.getByRole('button', { name: '粘贴为拼豆' })).toBeDisabled();
+    expect(screen.getByRole('heading', { name: '捕捉现实' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '物体' })).toHaveAttribute('aria-pressed', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: '抓取红色马克杯' }));
-    expect(screen.getByText('Copied')).toBeInTheDocument();
-    expect(screen.getByText('红色马克杯')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '抓取小猫摆件' }));
+    expect(screen.getByRole('heading', { name: '转换创作' })).toBeInTheDocument();
+    expect(screen.getByText('小猫摆件')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '粘贴为拼豆' }));
-    expect(screen.getByRole('heading', { name: '拼豆模板' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '生成拼豆模板' }));
+    expect(screen.getByRole('heading', { name: '拼豆图纸' })).toBeInTheDocument();
     expect(screen.getByText(/总计/)).toBeInTheDocument();
   });
-});
 
+  it('lets the user choose object, color, or contour capture intent', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: '颜色' }));
+    expect(screen.getByRole('button', { name: '颜色' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: '轮廓' }));
+    expect(screen.getByRole('button', { name: '轮廓' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});

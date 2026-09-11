@@ -23,7 +23,7 @@ export function findDemoObjectAt(point: NormalizedPoint): DemoObject | undefined
   if (inLeaves || inPot) return PLANT;
 
   const catDx = (point.x - 0.5) / 0.16;
-  const catDy = (point.y - 0.53) / 0.25;
+  const catDy = (point.y - 0.65) / 0.16;
   if (catDx ** 2 + catDy ** 2 <= 1) return CAT;
 
   return undefined;
@@ -98,8 +98,8 @@ function drawScenePlant(context: CanvasRenderingContext2D, width: number, height
 
 function drawSceneCat(context: CanvasRenderingContext2D, width: number, height: number): void {
   context.save();
-  context.translate(width * 0.35, height * 0.23);
-  context.scale(width * 0.3, height * 0.56);
+  context.translate(width * 0.29, height * 0.49);
+  context.scale(width * 0.42, width * 0.42);
   drawCat(context);
   context.restore();
 }
