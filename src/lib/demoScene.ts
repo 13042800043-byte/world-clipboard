@@ -8,6 +8,8 @@ export type DemoObject = {
 const MUG: DemoObject = { id: 'mug', label: '红色马克杯' };
 const PLANT: DemoObject = { id: 'plant', label: '桌面绿植' };
 
+export const DEMO_OBJECTS = [MUG, PLANT] as const;
+
 export function findDemoObjectAt(point: NormalizedPoint): DemoObject | undefined {
   const inMugBody = point.x >= 0.18 && point.x <= 0.36 && point.y >= 0.45 && point.y <= 0.76;
   const inMugHandle = point.x >= 0.34 && point.x <= 0.45 && point.y >= 0.5 && point.y <= 0.68;
@@ -174,4 +176,3 @@ function drawPlant(context: CanvasRenderingContext2D): void {
   context.roundRect(0.25, 0.58, 0.5, 0.1, 0.04);
   context.fill();
 }
-
