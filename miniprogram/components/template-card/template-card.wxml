@@ -1,0 +1,14 @@
+<button
+  class="card {{template.active ? 'card--active' : ''}} {{template.disabled ? 'card--disabled' : ''}}"
+  bindtap="onTap"
+  disabled="{{template.disabled}}"
+  aria-label="{{template.label}}{{template.disabled ? '，即将开放' : ''}}"
+>
+  <view class="icon icon--{{template.id}}">
+    <view class="icon__pixel"></view>
+    <view class="icon__pixel icon__pixel--two"></view>
+    <view class="icon__pixel icon__pixel--three"></view>
+  </view>
+  <text class="card__label">{{template.label}}</text>
+  <text wx:if="{{template.disabled}}" class="card__state">即将开放</text>
+</button>

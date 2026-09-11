@@ -1,0 +1,26 @@
+<view class="preview preview--{{type}}">
+  <block wx:if="{{type === 'object'}}">
+    <view class="shadow"></view>
+    <view class="cat-ear cat-ear--left"></view>
+    <view class="cat-ear cat-ear--right"></view>
+    <view class="cat-head">
+      <view class="cat-patch"></view>
+      <view class="cat-eye cat-eye--left"></view>
+      <view class="cat-eye cat-eye--right"></view>
+      <view class="cat-nose"></view>
+      <view class="cat-mouth cat-mouth--left"></view>
+      <view class="cat-mouth cat-mouth--right"></view>
+    </view>
+    <view class="cat-body">
+      <view class="collar"></view>
+      <view class="bell">●</view>
+      <view class="paw paw--left"></view>
+      <view class="paw paw--right"></view>
+    </view>
+  </block>
+  <view wx:elif="{{type === 'color'}}" class="color-swatch" style="background: {{colorHex}};"></view>
+  <view wx:else class="outline-cat">
+    <view class="outline-ear outline-ear--left"></view>
+    <view class="outline-ear outline-ear--right"></view>
+  </view>
+</view>

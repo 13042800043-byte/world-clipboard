@@ -1,0 +1,18 @@
+.card { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 196rpx; margin: 0; padding: 20rpx 8rpx 16rpx; border: 2rpx solid transparent; border-radius: 28rpx; color: #202124; background: #f1f3f5; }
+.card::after { border: 0; }
+.card--active { border-color: #222426; background: #ffffff; box-shadow: 0 12rpx 34rpx rgba(23, 27, 30, 0.08); }
+.card--disabled { color: #a2a5a8; background: #f4f5f6; }
+.icon { position: relative; width: 74rpx; height: 74rpx; margin-bottom: 10rpx; }
+.icon__pixel { position: absolute; top: 8rpx; left: 9rpx; width: 24rpx; height: 24rpx; border-radius: 6rpx; background: #585d60; box-shadow: 28rpx 0 0 #a8adb0, 14rpx 27rpx 0 #e19f98; }
+.icon__pixel--two,.icon__pixel--three { display: none; }
+.icon--sticker { border: 4rpx solid #62676b; border-radius: 50% 46% 52% 42%; transform: rotate(-8deg); }
+.icon--sticker .icon__pixel { display: none; }
+.icon--pixel .icon__pixel { border-radius: 0; box-shadow: 26rpx 0 0 #a8adb0, 0 26rpx 0 #e19f98, 26rpx 26rpx 0 #e0ae4d; }
+.icon--lego { width: 72rpx; height: 46rpx; margin-top: 16rpx; border-radius: 7rpx; background: #c5c8ca; box-shadow: inset 0 -9rpx 0 #a4a8aa; }
+.icon--lego::before { content: ''; position: absolute; top: -12rpx; left: 9rpx; width: 15rpx; height: 14rpx; border-radius: 50% 50% 0 0; background: #aeb2b5; box-shadow: 38rpx 0 0 #aeb2b5; }
+.icon--lego .icon__pixel { display: none; }
+.icon--cross-stitch::before,.icon--cross-stitch::after { content: ''; position: absolute; top: 10rpx; left: 34rpx; width: 5rpx; height: 54rpx; border-radius: 4rpx; background: #a0a4a7; transform: rotate(45deg); }
+.icon--cross-stitch::after { transform: rotate(-45deg); }
+.icon--cross-stitch .icon__pixel { display: none; }
+.card__label { font-size: 24rpx; font-weight: 600; line-height: 34rpx; }
+.card__state { margin-top: 1rpx; color: #a2a5a8; font-size: 17rpx; line-height: 24rpx; }

@@ -1,4 +1,7 @@
 {
   "navigationStyle": "custom",
-  "usingComponents": {}
+  "usingComponents": {
+    "object-preview": "/components/object-preview/object-preview",
+    "template-card": "/components/template-card/template-card"
+  }
 }
