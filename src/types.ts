@@ -10,4 +10,10 @@ export type WorldClipboardItem = {
   createdAt: number;
   previewUrl: string;
   imageData: Pick<ImageData, 'data' | 'width' | 'height'>;
+  spatial: {
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+  };
 };

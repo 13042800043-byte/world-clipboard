@@ -26,8 +26,8 @@ export function App() {
       createdAt: Date.now(),
       previewUrl: mode === 'object' ? capture.previewUrl : pixelsToDataUrl(imageData),
       imageData,
+      spatial: { x: point.x, y: point.y, scale: 1, rotation: 0 },
     });
-    void point;
     setPattern(undefined);
     setPage('create');
   }
