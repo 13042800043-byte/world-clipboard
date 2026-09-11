@@ -1,1 +1,131 @@
-.placeholder-page { padding: 120rpx 40rpx; }
+.camera-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  color: #ffffff;
+  background: #17191a;
+}
+
+.camera-feed,
+.mock-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.mock-scene {
+  overflow: hidden;
+  background: linear-gradient(145deg, #91968f 0%, #565a58 46%, #363a39 100%);
+}
+
+.mock-scene__light {
+  position: absolute;
+  top: -140rpx;
+  right: -80rpx;
+  width: 620rpx;
+  height: 780rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.32);
+  filter: blur(80rpx);
+}
+
+.mock-scene__plant { position: absolute; top: 230rpx; left: 60rpx; width: 240rpx; height: 440rpx; opacity: 0.74; }
+.mock-scene__leaf { position: absolute; width: 126rpx; height: 176rpx; border-radius: 80% 12% 75% 12%; background: #304d2d; }
+.mock-scene__leaf--one { top: 0; left: 30rpx; transform: rotate(-28deg); }
+.mock-scene__leaf--two { top: 82rpx; right: 0; transform: rotate(46deg); }
+.mock-scene__pot { position: absolute; bottom: 0; left: 42rpx; display: flex; flex-direction: column; justify-content: center; width: 166rpx; height: 186rpx; color: rgba(20, 20, 20, 0.6); font-size: 21rpx; font-weight: 700; text-align: center; background: #b9b2a6; transform: perspective(220rpx) rotateX(-5deg); }
+.mock-scene__pot text { font-size: 17rpx; letter-spacing: 3rpx; }
+.mock-scene__table { position: absolute; left: -10%; bottom: -8%; width: 120%; height: 41%; background: linear-gradient(170deg, #ac8e6e, #765e49); transform: skewY(-4deg); }
+
+.topbar {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 28rpx) 34rpx 24rpx;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.42), transparent);
+}
+
+.brand { font-size: 30rpx; font-weight: 700; letter-spacing: 1rpx; }
+.brand-subtitle { margin-top: 2rpx; color: rgba(255, 255, 255, 0.72); font-size: 18rpx; }
+
+.debug-chip {
+  min-width: 118rpx;
+  height: 54rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.35);
+  border-radius: 28rpx;
+  color: #ffffff;
+  font-size: 18rpx;
+  line-height: 52rpx;
+  letter-spacing: 2rpx;
+  background: rgba(0, 0, 0, 0.28);
+}
+.debug-chip::after { border: 0; }
+
+.captured {
+  position: absolute;
+  z-index: 8;
+  width: 218rpx;
+  height: 266rpx;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+  transition: transform 150ms ease, filter 150ms ease, opacity 480ms ease, left 560ms cubic-bezier(.2,.8,.2,1), top 560ms cubic-bezier(.2,.8,.2,1);
+  filter: drop-shadow(0 18rpx 20rpx rgba(0, 0, 0, 0.24));
+}
+
+.captured--grabbed { transform: translate(-50%, -50%) scale(0.94); filter: drop-shadow(0 0 16rpx rgba(255, 255, 255, 0.95)); }
+.captured--copying { left: 90% !important; top: 12% !important; opacity: 0.08; transform: translate(-50%, -50%) scale(0.14) rotate(8deg); }
+
+.cat-head { position: absolute; z-index: 2; top: 30rpx; left: 24rpx; width: 170rpx; height: 146rpx; border-radius: 47% 47% 42% 42%; background: #f6f1e9; }
+.cat-ear { position: absolute; z-index: 1; top: 8rpx; width: 74rpx; height: 88rpx; background: #686a68; transform: rotate(45deg); }
+.cat-ear--left { left: 27rpx; border-radius: 16rpx 8rpx 10rpx 8rpx; }
+.cat-ear--right { right: 27rpx; border-radius: 8rpx 16rpx 8rpx 10rpx; }
+.cat-patch { position: absolute; top: 0; right: 0; width: 86rpx; height: 70rpx; border-radius: 0 72rpx 0 70rpx; background: #686a68; }
+.cat-eye { position: absolute; top: 64rpx; width: 19rpx; height: 25rpx; border-radius: 50%; background: #191a19; }
+.cat-eye--left { left: 42rpx; }
+.cat-eye--right { right: 42rpx; }
+.cat-nose { position: absolute; top: 94rpx; left: 79rpx; width: 15rpx; height: 11rpx; border-radius: 50%; background: #eaa394; }
+.cat-body { position: absolute; z-index: 1; bottom: 8rpx; left: 46rpx; width: 126rpx; height: 130rpx; border-radius: 48% 48% 42% 42%; background: #f5efe7; }
+.cat-bell { position: absolute; top: 18rpx; left: 49rpx; color: #d7a32c; font-size: 28rpx; }
+
+.color-target { position: absolute; top: 40rpx; left: 18rpx; width: 182rpx; height: 182rpx; border: 8rpx solid rgba(255, 255, 255, 0.82); border-radius: 50%; background: #d76a42; box-shadow: inset 0 0 0 4rpx rgba(0, 0, 0, 0.08); }
+.contour-target { position: absolute; top: 30rpx; left: 31rpx; width: 150rpx; height: 180rpx; border: 8rpx solid #ffffff; border-radius: 45% 45% 42% 42%; }
+.contour-ear { position: absolute; top: -36rpx; width: 56rpx; height: 56rpx; border-top: 8rpx solid #ffffff; border-left: 8rpx solid #ffffff; background: transparent; transform: rotate(45deg); }
+.contour-ear--left { left: 9rpx; }
+.contour-ear--right { right: 9rpx; }
+
+.instruction {
+  position: absolute;
+  z-index: 18;
+  left: 50%;
+  bottom: 266rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 14rpx 22rpx;
+  border-radius: 28rpx;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 21rpx;
+  background: rgba(0, 0, 0, 0.32);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.instruction--active { background: rgba(0, 0, 0, 0.54); }
+.instruction__state { color: #ffffff; font-size: 17rpx; font-weight: 700; letter-spacing: 1rpx; }
+
+.bottom-controls { position: absolute; z-index: 20; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 44rpx); display: flex; flex-direction: column; align-items: center; gap: 20rpx; transform: translateX(-50%); }
+.bottom-hint { color: rgba(255, 255, 255, 0.68); font-size: 19rpx; text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.42); }
+
+.clipboard-target { position: absolute; z-index: 21; top: calc(env(safe-area-inset-top) + 42rpx); right: 38rpx; display: none; width: 58rpx; height: 66rpx; border: 3rpx solid rgba(255, 255, 255, 0.9); border-radius: 11rpx; }
+.clipboard-target--active { display: block; animation: clipboard-pulse 620ms ease both; }
+.clipboard-target__paper { position: absolute; top: -10rpx; left: 13rpx; width: 27rpx; height: 14rpx; border-radius: 5rpx; background: #ffffff; }
+
+@keyframes clipboard-pulse {
+  0% { transform: scale(0.85); opacity: 0; }
+  45% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.75; }
+}

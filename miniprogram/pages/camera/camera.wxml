@@ -1,1 +1,81 @@
-<view class="placeholder-page">世界粘贴板 · Camera</view>
+<view
+  class="camera-page"
+  catchtouchstart="onTouchStart"
+  catchtouchmove="onTouchMove"
+  catchtouchend="onTouchEnd"
+  catchtouchcancel="onTouchCancel"
+>
+  <camera
+    class="camera-feed"
+    device-position="back"
+    flash="off"
+    mode="normal"
+    frame-size="small"
+    bindinitdone="onCameraReady"
+    binderror="onCameraError"
+  ></camera>
+
+  <view wx:if="{{useMockScene}}" class="mock-scene" aria-label="摄像头模拟画面">
+    <view class="mock-scene__light"></view>
+    <view class="mock-scene__plant">
+      <view class="mock-scene__leaf mock-scene__leaf--one"></view>
+      <view class="mock-scene__leaf mock-scene__leaf--two"></view>
+      <view class="mock-scene__pot">GOOD<text>THINGS</text></view>
+    </view>
+    <view class="mock-scene__table"></view>
+  </view>
+
+  <view class="topbar">
+    <view>
+      <view class="brand">世界粘贴板</view>
+      <view class="brand-subtitle">World Clipboard</view>
+    </view>
+    <button class="debug-chip" catchtap="onToggleScene">
+      {{useMockScene ? 'MOCK' : 'CAMERA'}}
+    </button>
+  </view>
+
+  <view
+    class="captured captured--{{mode}} {{isGrabbed ? 'captured--grabbed' : ''}} {{isCopying ? 'captured--copying' : ''}}"
+    style="left: {{objectX * 100}}%; top: {{objectY * 100}}%;"
+    aria-label="可抓取的模拟目标"
+  >
+    <block wx:if="{{mode === 'object'}}">
+      <view class="cat-ear cat-ear--left"></view>
+      <view class="cat-ear cat-ear--right"></view>
+      <view class="cat-head">
+        <view class="cat-patch"></view>
+        <view class="cat-eye cat-eye--left"></view>
+        <view class="cat-eye cat-eye--right"></view>
+        <view class="cat-nose"></view>
+      </view>
+      <view class="cat-body"><view class="cat-bell">●</view></view>
+    </block>
+    <view wx:elif="{{mode === 'color'}}" class="color-target"></view>
+    <view wx:else class="contour-target">
+      <view class="contour-ear contour-ear--left"></view>
+      <view class="contour-ear contour-ear--right"></view>
+    </view>
+  </view>
+
+  <spatial-cursor
+    x="{{cursorX}}"
+    y="{{cursorY}}"
+    gesture="{{gesture}}"
+    visible="{{debugMode}}"
+  />
+
+  <view class="instruction {{isGrabbed ? 'instruction--active' : ''}}">
+    <text class="instruction__state">{{gesture}}</text>
+    <text>{{status}}</text>
+  </view>
+
+  <view class="bottom-controls">
+    <capture-mode-selector active="{{mode}}" bindchange="onModeChange" />
+    <text class="bottom-hint">按住 = Pinch · 移动 = Drag · 松开 = Copy</text>
+  </view>
+
+  <view class="clipboard-target {{isCopying ? 'clipboard-target--active' : ''}}">
+    <view class="clipboard-target__paper"></view>
+  </view>
+</view>
