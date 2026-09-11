@@ -1,0 +1,23 @@
+{
+  "description": "世界粘贴板微信小程序原型",
+  "miniprogramRoot": "miniprogram/",
+  "srcMiniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "projectname": "world-clipboard",
+  "appid": "touristappid",
+  "libVersion": "3.7.6",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": false,
+    "minifyWXSS": false,
+    "minifyWXML": false,
+    "urlCheck": false,
+    "checkSiteMap": true,
+    "compileHotReLoad": true,
+    "useCompilerPlugins": ["typescript"]
+  },
+  "simulatorType": "wechat",
+  "condition": {}
+}
