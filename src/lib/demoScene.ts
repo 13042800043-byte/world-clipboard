@@ -1,14 +1,15 @@
 import type { NormalizedPoint } from './pinch';
 
 export type DemoObject = {
-  id: 'mug' | 'plant';
+  id: 'mug' | 'plant' | 'cat';
   label: string;
 };
 
 const MUG: DemoObject = { id: 'mug', label: '红色马克杯' };
 const PLANT: DemoObject = { id: 'plant', label: '桌面绿植' };
+const CAT: DemoObject = { id: 'cat', label: '小猫摆件' };
 
-export const DEMO_OBJECTS = [MUG, PLANT] as const;
+export const DEMO_OBJECTS = [CAT, MUG, PLANT] as const;
 
 export function findDemoObjectAt(point: NormalizedPoint): DemoObject | undefined {
   const inMugBody = point.x >= 0.18 && point.x <= 0.36 && point.y >= 0.45 && point.y <= 0.76;
@@ -20,6 +21,10 @@ export function findDemoObjectAt(point: NormalizedPoint): DemoObject | undefined
   const inLeaves = plantDx ** 2 + plantDy ** 2 <= 1;
   const inPot = point.x >= 0.62 && point.x <= 0.76 && point.y >= 0.57 && point.y <= 0.76;
   if (inLeaves || inPot) return PLANT;
+
+  const catDx = (point.x - 0.5) / 0.16;
+  const catDy = (point.y - 0.53) / 0.25;
+  if (catDx ** 2 + catDy ** 2 <= 1) return CAT;
 
   return undefined;
 }
@@ -48,6 +53,7 @@ export function drawDemoScene(canvas: HTMLCanvasElement): void {
 
   drawSceneMug(context, width, height);
   drawScenePlant(context, width, height);
+  drawSceneCat(context, width, height);
 
   context.fillStyle = 'rgba(244,247,245,.64)';
   context.font = `${Math.max(13, width * 0.014)}px ui-sans-serif, system-ui`;
@@ -65,7 +71,8 @@ export function renderDemoObject(
   if (!context) throw new Error('Canvas 2D is unavailable.');
 
   if (object.id === 'mug') drawCutoutMug(context, size);
-  else drawCutoutPlant(context, size);
+  else if (object.id === 'plant') drawCutoutPlant(context, size);
+  else drawCutoutCat(context, size);
 
   return {
     imageData: context.getImageData(0, 0, size, size),
@@ -89,6 +96,14 @@ function drawScenePlant(context: CanvasRenderingContext2D, width: number, height
   context.restore();
 }
 
+function drawSceneCat(context: CanvasRenderingContext2D, width: number, height: number): void {
+  context.save();
+  context.translate(width * 0.35, height * 0.23);
+  context.scale(width * 0.3, height * 0.56);
+  drawCat(context);
+  context.restore();
+}
+
 function drawCutoutMug(context: CanvasRenderingContext2D, size: number): void {
   context.save();
   context.translate(size * 0.08, size * 0.08);
@@ -103,6 +118,99 @@ function drawCutoutPlant(context: CanvasRenderingContext2D, size: number): void 
   context.scale(size * 0.84, size * 0.92);
   drawPlant(context);
   context.restore();
+}
+
+function drawCutoutCat(context: CanvasRenderingContext2D, size: number): void {
+  context.save();
+  context.translate(size * 0.06, size * 0.03);
+  context.scale(size * 0.88, size * 0.9);
+  drawCat(context);
+  context.restore();
+}
+
+function drawCat(context: CanvasRenderingContext2D): void {
+  context.fillStyle = 'rgba(31, 35, 36, .18)';
+  context.beginPath();
+  context.ellipse(0.5, 0.91, 0.31, 0.055, 0, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = '#f6f2eb';
+  context.beginPath();
+  context.ellipse(0.5, 0.68, 0.25, 0.28, 0, 0, Math.PI * 2);
+  context.fill();
+
+  context.beginPath();
+  context.arc(0.5, 0.36, 0.27, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = '#62676b';
+  context.beginPath();
+  context.moveTo(0.28, 0.25);
+  context.lineTo(0.31, 0.03);
+  context.lineTo(0.45, 0.17);
+  context.closePath();
+  context.fill();
+  context.beginPath();
+  context.moveTo(0.55, 0.17);
+  context.lineTo(0.7, 0.03);
+  context.lineTo(0.73, 0.27);
+  context.closePath();
+  context.fill();
+
+  context.fillStyle = '#e9a5a0';
+  context.beginPath();
+  context.moveTo(0.315, 0.19);
+  context.lineTo(0.33, 0.09);
+  context.lineTo(0.4, 0.18);
+  context.closePath();
+  context.fill();
+  context.beginPath();
+  context.moveTo(0.6, 0.18);
+  context.lineTo(0.68, 0.09);
+  context.lineTo(0.69, 0.2);
+  context.closePath();
+  context.fill();
+
+  context.fillStyle = '#656a6e';
+  context.beginPath();
+  context.arc(0.39, 0.31, 0.13, Math.PI * .85, Math.PI * 1.9);
+  context.lineTo(0.5, 0.35);
+  context.closePath();
+  context.fill();
+  context.beginPath();
+  context.arc(0.62, 0.32, 0.12, Math.PI * 1.15, Math.PI * 2.15);
+  context.lineTo(0.53, 0.36);
+  context.closePath();
+  context.fill();
+
+  context.fillStyle = '#232829';
+  context.beginPath();
+  context.arc(0.41, 0.36, 0.026, 0, Math.PI * 2);
+  context.arc(0.59, 0.36, 0.026, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = '#df8f8a';
+  context.beginPath();
+  context.moveTo(0.5, 0.4);
+  context.lineTo(0.47, 0.43);
+  context.lineTo(0.53, 0.43);
+  context.closePath();
+  context.fill();
+
+  context.strokeStyle = '#9a4541';
+  context.lineWidth = 0.025;
+  context.beginPath();
+  context.arc(0.5, 0.57, 0.2, 0.15, Math.PI - 0.15);
+  context.stroke();
+  context.fillStyle = '#e0ac42';
+  context.beginPath();
+  context.arc(0.5, 0.62, 0.055, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = '#f6f2eb';
+  context.beginPath();
+  context.ellipse(0.37, 0.83, 0.095, 0.13, 0, 0, Math.PI * 2);
+  context.ellipse(0.63, 0.83, 0.095, 0.13, 0, 0, Math.PI * 2);
+  context.fill();
 }
 
 function drawMug(context: CanvasRenderingContext2D): void {

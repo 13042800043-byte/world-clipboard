@@ -11,8 +11,11 @@ describe('findDemoObjectAt', () => {
     expect(findDemoObjectAt({ x: 0.69, y: 0.38 })?.id).toBe('plant');
   });
 
+  it('selects the cat figurine in the center of the scene', () => {
+    expect(findDemoObjectAt({ x: 0.5, y: 0.54 })?.id).toBe('cat');
+  });
+
   it('returns no object for empty space', () => {
     expect(findDemoObjectAt({ x: 0.08, y: 0.15 })).toBeUndefined();
   });
 });
-
