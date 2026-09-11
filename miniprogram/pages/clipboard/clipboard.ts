@@ -3,11 +3,11 @@ import type { ClipboardItem } from '../../clipboard/clipboard-types'
 import { generateMockPerler } from '../../plugins/perler/perler-generator'
 
 const templates = [
-  { id: 'perler', label: '拼豆模板', active: false, disabled: false },
-  { id: 'sticker', label: '贴纸', active: false, disabled: true },
-  { id: 'pixel', label: '像素画', active: false, disabled: true },
-  { id: 'lego', label: 'LEGO 模板', active: false, disabled: true },
-  { id: 'cross-stitch', label: '十字绣', active: false, disabled: true },
+  { id: 'perler', label: '拼豆模板', active: false, disabled: false, widthClass: 'third' },
+  { id: 'sticker', label: '贴纸', active: false, disabled: true, widthClass: 'third' },
+  { id: 'pixel', label: '像素画', active: false, disabled: true, widthClass: 'third' },
+  { id: 'lego', label: 'LEGO 模板', active: false, disabled: true, widthClass: 'half' },
+  { id: 'cross-stitch', label: '十字绣', active: false, disabled: true, widthClass: 'half' },
 ]
 
 Page({

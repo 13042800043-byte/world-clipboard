@@ -32,7 +32,7 @@
     </view>
 
     <view class="template-grid">
-      <view wx:for="{{templates}}" wx:key="id" class="template-cell template-cell--{{index < 3 ? 'third' : 'half'}}">
+      <view wx:for="{{templates}}" wx:key="id" class="template-cell template-cell--{{item.widthClass}}">
         <template-card template="{{item}}" bindselect="onTemplateSelect" />
       </view>
     </view>
