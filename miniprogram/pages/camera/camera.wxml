@@ -1,10 +1,11 @@
-<view
-  class="camera-page"
-  catchtouchstart="onTouchStart"
-  catchtouchmove="onTouchMove"
-  catchtouchend="onTouchEnd"
-  catchtouchcancel="onTouchCancel"
->
+<view class="camera-page">
+  <view
+    class="interaction-layer"
+    catchtouchstart="onTouchStart"
+    catchtouchmove="onTouchMove"
+    catchtouchend="onTouchEnd"
+    catchtouchcancel="onTouchCancel"
+  >
   <camera
     class="camera-feed"
     device-position="back"
@@ -23,16 +24,6 @@
       <view class="mock-scene__pot">GOOD<text>THINGS</text></view>
     </view>
     <view class="mock-scene__table"></view>
-  </view>
-
-  <view class="topbar">
-    <view>
-      <view class="brand">世界粘贴板</view>
-      <view class="brand-subtitle">World Clipboard</view>
-    </view>
-    <button class="debug-chip" catchtap="onToggleScene">
-      {{useMockScene ? 'MOCK' : 'CAMERA'}}
-    </button>
   </view>
 
   <view
@@ -68,6 +59,17 @@
   <view class="instruction {{isGrabbed ? 'instruction--active' : ''}}">
     <text class="instruction__state">{{gesture}}</text>
     <text>{{status}}</text>
+  </view>
+  </view>
+
+  <view class="topbar">
+    <view>
+      <view class="brand">世界粘贴板</view>
+      <view class="brand-subtitle">World Clipboard</view>
+    </view>
+    <button class="debug-chip" catchtap="onToggleScene">
+      {{useMockScene ? 'MOCK' : 'CAMERA'}}
+    </button>
   </view>
 
   <view class="bottom-controls">

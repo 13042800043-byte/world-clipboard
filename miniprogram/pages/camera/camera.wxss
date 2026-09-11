@@ -7,6 +7,8 @@
   background: #17191a;
 }
 
+.interaction-layer { position: absolute; inset: 0; }
+
 .camera-feed,
 .mock-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
 

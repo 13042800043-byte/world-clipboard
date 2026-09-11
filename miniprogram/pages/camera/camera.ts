@@ -125,7 +125,7 @@ Page({
   },
 
   toNormalizedPoint(touch: MiniProgramTouch) {
-    const system = wx.getSystemInfoSync()
+    const system = wx.getWindowInfo()
     return {
       x: Math.max(0, Math.min(1, touch.clientX / system.windowWidth)),
       y: Math.max(0, Math.min(1, touch.clientY / system.windowHeight)),

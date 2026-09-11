@@ -7,7 +7,7 @@ declare const wx: {
   navigateBack(options?: { delta?: number }): void;
   showToast(options: { title: string; icon?: 'success' | 'error' | 'loading' | 'none'; duration?: number }): void;
   pageScrollTo(options: { selector?: string; scrollTop?: number; duration?: number }): void;
-  getSystemInfoSync(): { windowWidth: number; windowHeight: number; statusBarHeight?: number };
+  getWindowInfo(): { windowWidth: number; windowHeight: number; statusBarHeight?: number };
 };
 
 interface MiniProgramTouch {
