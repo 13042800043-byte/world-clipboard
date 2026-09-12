@@ -17,7 +17,8 @@ Camera
 → 手掌朝向摄像头，将食指光标放进物体内部并短暂停稳
 → 拇指与食指指尖对捏并保持约 0.15 秒（开发者工具可按住模拟）
 → 保持捏合并移动整只手（Drag）
-→ 张开两指或松开触点（Release / Copy，使用 Grab 时锁定的画面和选点）
+→ 稳住手机：Grab 锁定选点，自动获取高清静态照片
+→ 张开两指或松开触点（Release / Copy，使用已锁定选点和高清照片）
 → Clipboard
 → 拼豆模板
 → 32 × 32 拼豆图纸与色号统计
@@ -60,7 +61,10 @@ python -m venv .venv
 - 统一 `ClipboardItem` 数据模型和内存 Store
 - VisionKit Hand Tracker（不支持时自动降级）
 - Python / FastAPI / OpenCV 点提示分割服务，返回透明 PNG、Mask 与归一化 bbox
-- Camera / VisionKit 当前帧文件捕获、上传、响应校验与明确错误提示
+- 稳定 Hover 的真实候选轮廓与 bbox（节流请求，不逐帧分割）
+- Final Capture 使用原生 `takePhoto({ quality: 'high' })`，VisionKit 画面仅用于预选
+- 高清 Point + Box、扩边 ROI、目标连通域、轻量形态学与一次模糊重拍
+- 高清原图 RGB 保真，低清模型仅生成 Mask，不生成最终 RGB
 - Clipboard 内容预览与五个 Paste Plugin 入口
 - 独立 `/plugins/perler` 真实插件，从透明 PNG 生成 32 × 32 网格和材料统计
 
@@ -75,6 +79,8 @@ USE_MOCK_SEGMENTATION
 ```
 
 这些开关让 UI 与视觉模型解耦。当前 Hand Tracking 与 Segmentation 的 Mock 开关默认关闭：真机优先使用 VisionKit，分割请求本机后端。拼豆不再提供固定 Mock 图案，只接受真实透明抠图。
+
+本轮高清抠图配置位于 `miniprogram/vision/cutout-config.ts` 和 `backend/app/cutout_config.py`。实现、接口、性能结果与待真机验收事项见 [Final Cutout P0 报告](docs/final-cutout-p0.md)。高级 Fine Model / Alpha Matting 尚未接入，不能只改开关就启用。
 
 ## 本地质量检查
 
