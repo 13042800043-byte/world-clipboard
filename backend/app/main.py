@@ -17,6 +17,7 @@ from app.segmentation import resize_for_segmentation, segment_foreground
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_IMAGE_PIXELS = 20_000_000
+SEGMENTATION_MAX_SIDE = 384
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 app = FastAPI(title="World Clipboard Vision API", version="0.1.0")
@@ -85,7 +86,7 @@ async def segment(
     frame = cv2.imdecode(np.frombuffer(contents, dtype=np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
         raise ApiError(422, "INVALID_IMAGE", "uploaded bytes are not a valid image")
-    frame = resize_for_segmentation(frame)
+    frame = resize_for_segmentation(frame, max_side=SEGMENTATION_MAX_SIDE)
 
     try:
         result = segment_foreground(frame, (point_x, point_y))
@@ -102,7 +103,7 @@ async def segment(
 
 
 @app.post("/api/perler")
-async def perler(request: PerlerRequest) -> dict[str, object]:
+def perler(request: PerlerRequest) -> dict[str, object]:
     prefix = "data:image/png;base64,"
     if not request.image.startswith(prefix):
         raise ApiError(422, "INVALID_PERLER_IMAGE", "perler input must be a PNG data URL")
@@ -111,6 +112,16 @@ async def perler(request: PerlerRequest) -> dict[str, object]:
         contents = base64.b64decode(request.image[len(prefix) :], validate=True)
     except (binascii.Error, ValueError) as error:
         raise ApiError(422, "INVALID_PERLER_IMAGE", "perler image base64 is invalid") from error
+
+    try:
+        with Image.open(BytesIO(contents)) as image_metadata:
+            if image_metadata.format != "PNG":
+                raise ApiError(422, "INVALID_PERLER_IMAGE", "perler input must be a PNG")
+            _ensure_safe_image_dimensions(*image_metadata.size)
+    except Image.DecompressionBombError as error:
+        raise ApiError(413, "IMAGE_DIMENSIONS_TOO_LARGE", "decoded image is too large") from error
+    except (UnidentifiedImageError, OSError) as error:
+        raise ApiError(422, "INVALID_PERLER_IMAGE", "perler PNG is invalid") from error
 
     image = cv2.imdecode(np.frombuffer(contents, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
     if image is None or image.ndim != 3 or image.shape[2] != 4:
