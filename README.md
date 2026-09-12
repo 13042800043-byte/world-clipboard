@@ -112,6 +112,21 @@ USE_MOCK_SEGMENTATION
 
 验证：前端 124 项、后端 38 项测试通过；小程序 TypeScript 和全部 6 WXML / 7 WXSS 编译、9 JSON 解析通过。新增 8/32/64 网格行列/顺序与错误尺寸测试，后端竖长包装测试确认直立轮廓和逐格坐标。当前页面仍使用 32×32，64 格性能未做手机测试。关闭旧小程序、重新编译预览后，使用竖长物体检查图纸应居中直立，而不是连续斜条；以上检查不等于已完成真机视觉验收。本轮无需重启后端。
 
+## 开源拼豆算法适配升级（2026-09-12）
+
+对比了 [Jett-Wu/Perler_Beads_Generator](https://github.com/Jett-Wu/Perler_Beads_Generator)、[Zippland/perler-beads](https://github.com/Zippland/perler-beads)、[perler-studio](https://github.com/real-jiakai/perler-studio)。选择 MIT 的 Jett-Wu 作为主要实现参考，读取 `imageToBeads.ts`、`palette.ts` 与 LICENSE 后移植适合现有 Python + 微信架构的生成阶段。Zippland 为 AGPL，perler-studio 本次未确认可复用许可证，未复制它们的代码/数据。不声称这是所有照片效果“绝对最好”的项目，也不是导入整套网页编辑器。
+
+- 原 UI 的 13 色演示色板升级为 **MARD 221 色卡**（后端也提供 291 选项），采用加权 red-mean 色差，不冒称 CIEDE2000。数据是开源 HEX 参考值，未做实物校色，源文件和 MIT 版权见 [第三方说明](THIRD_PARTY_NOTICES.md)。
+- 每格做 7×7 / 5×5 区域采样和 alpha 加权投票；“清晰色块”优先主色、保守去近色孤点，“保留细节”在无主色时使用均值回退。候选颜色按频率与差异选择，保护深色线条/饱和特征，不默认增加抖动噪点。透明孔不会填白，白色前景不会当背景删除。
+- 手机工作区提供 **32 / 48 / 64 格、两种风格、8 / 16 / 24 色上限**。默认 48 格、清晰色块、16 色，针对真实照片比旧 32 格保留更多信息，但小字和遮挡不保证还原。
+- 后端输出圆孔拼豆效果和带行列坐标/MARD 色号、每 8 格加粗辅助线的高清 PNG。小程序切换显示并通过[微信 previewImage](https://intl.cloud.tencent.com/zh/document/product/1219/57745)放大；先将 PNG 写入两个重复使用的本地文件，不把 base64 直接当预览 URL。返回放大预览保留工作区，新物体/离页使旧请求失效。旧后端缺少预览时保留明确行列的 UI 后备，并显示“旧版色卡 · 请更新后端”。
+
+`POST /api/perler` 增加可选字段 `palette`, `style`, `maxColors`, `includePreviews`；旧调用默认 legacy / realistic / 16，不破坏原有 grid/cells/colors/totalBeads 字段。旧调用也使用新采样算法，不保证与历史输出逐格完全相同。响应附加 `paletteId/paletteSize/style/maxColors`，请求预览时附加 `beadPreview/chartPreview`。手势、真实抠图和 ClipboardItem 未修改。
+
+本轮检查：129 项前端测试、58 项后端测试、小程序 TypeScript、全部 WXML/WXSS 编译通过。无新增运行依赖。通过配置中的局域网地址运行 `backend/scripts/verify_perler_quality.py`，1600×1000 **合成测试包装**的 32/48/64 请求（含两张 PNG）往返约 426/509/930ms，响应约 101/199/330KB；这是电脑访问当前后端的结果，不是手机实测或实际照片质量评分。生成的图纸/拼豆 PNG 已视觉检查，原生手机布局、真实照片质量及 64 格色号可读性仍需新预览验收。
+
+本机后端已重启到新版；如果自行启动，仍使用现有 uvicorn 命令。完全关闭旧小程序、重新编译预览，抓取实际物体后点击拼豆，核对色卡标记和两种预览，必要时切 64 格或“保留细节”。高级手动逐格编辑、完整 3D、PDF/Excel 导出未移植，继续保留两个核心页面。
+
 ## 本地质量检查
 
 需要 Node.js 20+ 与 pnpm：
