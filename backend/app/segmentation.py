@@ -11,6 +11,18 @@ class SegmentationResult:
     bbox: dict[str, float]
 
 
+def resize_for_segmentation(image: np.ndarray, max_side: int = 512) -> np.ndarray:
+    """Bound GrabCut cost while preserving normalized point and bbox coordinates."""
+    height, width = image.shape[:2]
+    longest = max(width, height)
+    if longest <= max_side:
+        return image
+
+    scale = max_side / longest
+    size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    return cv2.resize(image, size, interpolation=cv2.INTER_AREA)
+
+
 def segment_foreground(
     image: np.ndarray,
     point: tuple[float, float],
@@ -36,7 +48,7 @@ def segment_foreground(
         rect,
         background_model,
         foreground_model,
-        5,
+        3,
         cv2.GC_INIT_WITH_RECT,
     )
 

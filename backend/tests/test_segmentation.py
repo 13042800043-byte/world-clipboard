@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from app.segmentation import segment_foreground
+from app.segmentation import resize_for_segmentation, segment_foreground
 
 
 def test_segment_foreground_returns_alpha_cutout_and_normalized_bbox() -> None:
@@ -31,3 +31,22 @@ def test_segment_foreground_rejects_points_outside_the_image() -> None:
         assert str(error) == "point must be normalized between 0 and 1"
     else:
         raise AssertionError("expected invalid point to be rejected")
+
+
+def test_resize_for_segmentation_caps_long_edge_and_preserves_ratio() -> None:
+    landscape = np.zeros((600, 1200, 3), dtype=np.uint8)
+    portrait = np.zeros((1200, 600, 3), dtype=np.uint8)
+
+    resized_landscape = resize_for_segmentation(landscape, max_side=512)
+    resized_portrait = resize_for_segmentation(portrait, max_side=512)
+
+    assert resized_landscape.shape == (256, 512, 3)
+    assert resized_portrait.shape == (512, 256, 3)
+
+
+def test_resize_for_segmentation_keeps_small_images_unchanged() -> None:
+    image = np.zeros((120, 160, 3), dtype=np.uint8)
+
+    resized = resize_for_segmentation(image, max_side=512)
+
+    assert resized is image

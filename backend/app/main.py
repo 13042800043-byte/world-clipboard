@@ -7,7 +7,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.segmentation import segment_foreground
+from app.segmentation import resize_for_segmentation, segment_foreground
 
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -66,6 +66,7 @@ async def segment(
     frame = cv2.imdecode(np.frombuffer(contents, dtype=np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
         raise ApiError(422, "INVALID_IMAGE", "uploaded bytes are not a valid image")
+    frame = resize_for_segmentation(frame)
 
     try:
         result = segment_foreground(frame, (point_x, point_y))
