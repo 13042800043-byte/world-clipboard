@@ -1,6 +1,9 @@
 import { clipboardStore } from '../../clipboard/clipboard-store'
 import type { ClipboardItem } from '../../clipboard/clipboard-types'
-import { generateMockPerler } from '../../plugins/perler/perler-generator'
+import { APP_CONFIG } from '../../config'
+import { RemotePerlerGenerator } from '../../plugins/perler/perler-generator'
+
+const perlerGenerator = new RemotePerlerGenerator(APP_CONFIG.VISION_API_BASE_URL)
 
 const templates = [
   { id: 'perler', label: '拼豆模板', active: false, disabled: false, widthClass: 'third' },
@@ -19,6 +22,8 @@ Page({
     previewImage: '',
     templates,
     showPerler: false,
+    perlerStatus: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
+    perlerError: '',
     perler: {
       size: 32,
       cells: [],
@@ -37,6 +42,8 @@ Page({
       rgbText: color.rgb.join(', '),
       previewImage: getRealPreview(item.previewImage),
       showPerler: false,
+      perlerStatus: 'idle',
+      perlerError: '',
       templates: templates.map((template) => ({ ...template, active: false })),
     })
   },
@@ -45,18 +52,29 @@ Page({
     wx.navigateBack({ delta: 1 })
   },
 
-  onTemplateSelect(event: { detail: { id: string } }) {
+  async onTemplateSelect(event: { detail: { id: string } }) {
     if (event.detail.id !== 'perler') return
-    const perler = generateMockPerler(this.data.item.type)
     this.setData({
-      perler,
       showPerler: true,
+      perlerStatus: 'loading',
+      perlerError: '',
       templates: templates.map((template) => ({
         ...template,
         active: template.id === 'perler',
       })),
     })
     setTimeout(() => wx.pageScrollTo({ selector: '#perler-result', duration: 360 }), 80)
+
+    try {
+      const perler = await perlerGenerator.generate(this.data.item, 32)
+      this.setData({ perler, perlerStatus: 'ready' })
+    } catch (error) {
+      const perlerError = error instanceof Error && error.message === '请先完成真实物体抠图'
+        ? error.message
+        : '拼豆生成失败 · 请检查视觉后端'
+      this.setData({ perlerStatus: 'error', perlerError })
+      wx.showToast({ title: perlerError, icon: 'none', duration: 2600 })
+    }
   },
 })
 

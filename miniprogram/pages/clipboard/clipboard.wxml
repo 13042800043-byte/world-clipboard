@@ -46,11 +46,24 @@
     <view class="section-heading">
       <view>
         <text class="eyebrow">PERLER RESULT</text>
-        <text class="section-title">32 × 32 拼豆图纸</text>
+        <text class="section-title">{{perler.size}} × {{perler.size}} 拼豆图纸</text>
       </view>
       <text class="section-index">02</text>
     </view>
 
+    <view wx:if="{{perlerStatus === 'loading'}}" class="perler-state" aria-label="正在从真实抠图生成拼豆">
+      <view class="perler-state__pulse"></view>
+      <text class="perler-state__title">正在读取真实抠图</text>
+      <text class="perler-state__hint">裁切 · 采样 · 色卡量化</text>
+    </view>
+
+    <view wx:elif="{{perlerStatus === 'error'}}" class="perler-state perler-state--error">
+      <text class="perler-state__mark">!</text>
+      <text class="perler-state__title">{{perlerError}}</text>
+      <text class="perler-state__hint">返回相机，将光标放在物体内部重新抓取</text>
+    </view>
+
+    <block wx:else>
     <view class="perler-card">
       <view class="perler-grid" aria-label="32乘32拼豆预览">
         <view
@@ -77,6 +90,7 @@
         <text class="palette-count">× {{item.count}}</text>
       </view>
     </view>
+    </block>
   </view>
 
   <view class="footer">CTRL+C THE REAL WORLD · CTRL+V ANYWHERE</view>

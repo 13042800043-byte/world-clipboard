@@ -42,6 +42,15 @@ declare const wx: {
     success(result: { statusCode: number; data: string }): void;
     fail(error: unknown): void;
   }): { abort?(): void };
+  request(options: {
+    url: string;
+    method: 'POST';
+    header: { 'content-type': 'application/json' };
+    data: Record<string, unknown>;
+    timeout: number;
+    success(result: { statusCode: number; data: unknown }): void;
+    fail(error: unknown): void;
+  }): unknown;
   createVKSession(options: {
     track: { plane: { mode: number }; hand: { mode: number } };
     version: string;
