@@ -3,6 +3,16 @@ declare function Page(options: Record<string, unknown>): void;
 declare function Component(options: Record<string, unknown>): void;
 
 declare const wx: {
+  env: { USER_DATA_PATH: string };
+  getFileSystemManager(): {
+    writeFile(options: {
+      filePath: string;
+      data: string;
+      encoding: 'base64';
+      success(): void;
+      fail(error: unknown): void;
+    }): void;
+  };
   navigateTo(options: { url: string; success?: () => void; fail?: (error: unknown) => void }): void;
   navigateBack(options?: { delta?: number }): void;
   showToast(options: { title: string; icon?: 'success' | 'error' | 'loading' | 'none'; duration?: number }): void;
