@@ -6,7 +6,7 @@ import type { Segmenter } from './segmentation-adapter'
 
 export class FinalSegmentationController {
   constructor(private readonly segmenter: Segmenter, private readonly sleep = delay) {}
-  async segment(photo: FinalPhoto, mode: CaptureMode, recapture: () => Promise<FinalPhoto>, debug = false,
+  async segment(photo: FinalPhoto, mode: Exclude<CaptureMode, 'color'>, recapture: () => Promise<FinalPhoto>, debug = false,
     isActive: () => boolean = () => true): Promise<ClipboardItem> {
     let current = photo
     for (let attempt = 0; ; attempt++) {

@@ -24,6 +24,14 @@ declare const wx: {
   getMenuButtonBoundingClientRect?(): { width: number; height: number; top: number; bottom: number; left: number; right: number };
   setNavigationBarColor?(options: { frontColor: '#ffffff' | '#000000'; backgroundColor: string }): void;
   getImageInfo(options: { src: string; success(result: { width: number; height: number; orientation?: string }): void; fail(error: unknown): void }): void;
+  createOffscreenCanvas(options: { type: '2d'; width: number; height: number }): {
+    width: number; height: number;
+    createImage(): { width: number; height: number; src?: string; onload?: () => void; onerror?: () => void };
+    getContext(type: '2d'): {
+      drawImage(image: unknown, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void;
+      getImageData(x: number, y: number, width: number, height: number): { data: Uint8ClampedArray };
+    };
+  };
   nextTick(callback: () => void): void;
   createSelectorQuery(): {
     select(selector: string): {

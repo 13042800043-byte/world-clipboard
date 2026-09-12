@@ -20,6 +20,7 @@ import { VISION_CONFIG } from '../../vision/vision-config'
 import { CUTOUT_CONFIG } from '../../vision/cutout-config'
 import { FinalCaptureController, type FinalCaptureInput, type FinalPhoto } from '../../vision/final-capture-controller'
 import { FinalSegmentationController } from '../../vision/final-segmentation-controller'
+import { PhotoColorCapture } from '../../vision/photo-color-capture'
 import { buildHandNegativePrompt } from '../../vision/hand-negative-prompt'
 import { HoverSelectionController } from '../../vision/hover-selection-controller'
 import { MockSegmentationAdapter } from '../../vision/segmentation-adapter'
@@ -39,6 +40,7 @@ const segmenter = APP_CONFIG.USE_MOCK_SEGMENTATION
   : new RemoteSegmentationAdapter(APP_CONFIG.VISION_API_BASE_URL)
 const visionGestureAdapter = new VisionKitHandGestureAdapter()
 const finalSegmenter = new FinalSegmentationController(segmenter)
+const colorCapture = new PhotoColorCapture()
 const visionSession = new VisionKitHandSession(
   (options) => wx.createVKSession(options),
   APP_CONFIG.VISIONKIT_FPS,
@@ -518,7 +520,7 @@ Page({
       gesture: next.gesture,
       isGrabbed: false,
       isCopying: true,
-      status: '正在复制现实…',
+      status: mode === 'color' ? '正在复制颜色…' : '正在复制现实…',
     })
 
     try {
@@ -526,7 +528,7 @@ Page({
       if (!pageVisible || generation !== captureGeneration) return
       if (!result?.capture) throw result?.error ?? new Error('抓取画面尚未准备好，请重新抓取')
       const [item] = await Promise.all([
-        finalSegmenter.segment(result.capture, mode, async () => {
+        mode === 'color' ? colorCapture.capture(result.capture) : finalSegmenter.segment(result.capture, mode, async () => {
           this.setData({ status: '画面偏糊 · 请稳住手机，自动重拍一次' })
           if (!recaptureFinal) throw new Error('高清相机尚未准备好')
           return recaptureFinal()
@@ -538,7 +540,7 @@ Page({
       wx.navigateTo({ url: '/pages/clipboard/clipboard' })
     } catch (error) {
       if (!pageVisible || generation !== captureGeneration) return
-      console.warn('Real segmentation failed', error)
+      console.warn(mode === 'color' ? 'Local color capture failed' : 'Real segmentation failed', error)
       const detail = error instanceof Error ? error.message : '未知错误'
       spatialController.reset()
       hoverSelection?.reset()
@@ -546,7 +548,7 @@ Page({
         gesture: 'HOVERING',
         isGrabbed: false,
         isCopying: false,
-        status: `真实抠图失败 · ${detail}`,
+        status: `${mode === 'color' ? '颜色抓取失败' : '真实抠图失败'} · ${detail}`,
         candidateOutline: '',
       })
       wx.showToast({ title: `抓取失败：${detail}`, icon: 'none', duration: 3600 })
