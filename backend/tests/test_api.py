@@ -39,6 +39,34 @@ def test_segment_accepts_multipart_image_and_returns_png_data_urls() -> None:
     assert len(base64.b64decode(payload["preview"].split(",", 1)[1])) > 100
 
 
+def test_segment_accepts_wechat_temporary_files_with_generic_mime() -> None:
+    image = np.zeros((80, 100, 3), dtype=np.uint8)
+    image[:] = (30, 160, 30)
+    cv2.rectangle(image, (30, 20), (69, 59), (20, 20, 230), thickness=-1)
+    encoded, buffer = cv2.imencode(".jpg", image)
+    assert encoded
+
+    response = client.post(
+        "/api/segment",
+        files={"image": ("camera-frame", buffer.tobytes(), "application/octet-stream")},
+        data={"pointX": "0.5", "pointY": "0.5", "mode": "object"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+
+
+def test_segment_still_rejects_invalid_bytes_with_generic_mime() -> None:
+    response = client.post(
+        "/api/segment",
+        files={"image": ("camera-frame", b"not an image", "application/octet-stream")},
+        data={"pointX": "0.5", "pointY": "0.5", "mode": "object"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_IMAGE"
+
+
 def test_segment_rejects_non_image_uploads_with_structured_error() -> None:
     response = client.post(
         "/api/segment",

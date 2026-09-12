@@ -18,7 +18,15 @@ from app.segmentation import resize_for_segmentation, segment_foreground
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_IMAGE_PIXELS = 20_000_000
 SEGMENTATION_MAX_SIDE = 384
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+# wx.uploadFile may label camera canvas exports as application/octet-stream even
+# when the bytes are a valid JPEG/PNG. The payload is still decoded and checked
+# below, so accepting this transport MIME does not bypass image validation.
+ALLOWED_UPLOAD_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "application/octet-stream",
+}
 
 app = FastAPI(title="World Clipboard Vision API", version="0.1.0")
 
@@ -68,7 +76,7 @@ async def segment(
     point_y: Annotated[float, Form(alias="pointY", ge=0, le=1)],
     mode: Annotated[Literal["object", "contour"], Form()],
 ) -> dict[str, object]:
-    if image.content_type not in ALLOWED_IMAGE_TYPES:
+    if image.content_type not in ALLOWED_UPLOAD_TYPES:
         raise ApiError(415, "UNSUPPORTED_MEDIA_TYPE", "image must be JPEG, PNG or WebP")
 
     contents = await image.read(MAX_IMAGE_BYTES + 1)
