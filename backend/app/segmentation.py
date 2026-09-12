@@ -114,11 +114,16 @@ def _prompt_rectangle(
 ) -> tuple[int, int, int, int]:
     center_x = round(point[0] * (width - 1))
     center_y = round(point[1] * (height - 1))
-    box_width = max(2, round(width * 0.72))
-    box_height = max(2, round(height * 0.72))
-    left = min(max(1, center_x - box_width // 2), width - box_width - 1)
-    top = min(max(1, center_y - box_height // 2), height - box_height - 1)
-    return left, top, min(box_width, width - left - 1), min(box_height, height - top - 1)
+    # Without a target bbox this is only a local search window, NOT an object
+    # boundary. A 72% x 72% window copied connected desktop regions. Clip a
+    # half-frame window around the point instead of shifting it at the edges.
+    box_width = max(2, round(width * 0.5))
+    box_height = max(2, round(height * 0.5))
+    left = max(1, center_x - box_width // 2)
+    top = max(1, center_y - box_height // 2)
+    right = min(width - 1, center_x - box_width // 2 + box_width)
+    bottom = min(height - 1, center_y - box_height // 2 + box_height)
+    return left, top, max(1, right - left), max(1, bottom - top)
 
 
 def _component_at_point(mask: np.ndarray, point: tuple[float, float]) -> np.ndarray:
