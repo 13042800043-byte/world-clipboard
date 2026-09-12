@@ -1,6 +1,6 @@
 # Third-party references
 
-World Clipboard Demo 的源代码为独立实现。以下项目用于产品研究、API 选型或算法结构参考；没有直接复制其源文件。
+以下开源项目用于产品研究、API 选型、算法参考或代码改编。
 
 | Project | License | How it informed this demo |
 | --- | --- | --- |
@@ -9,5 +9,30 @@ World Clipboard Demo 的源代码为独立实现。以下项目用于产品研�
 | [KineMouse](https://github.com/4shil/kinemouse) | MIT | pinch 手势的滞回与有限状态机思路 |
 | [MediaPipe Samples for Web](https://github.com/google-ai-edge/mediapipe-samples-web) | Apache-2.0 | 后续 Hand Landmarker 与 Interactive Segmenter 的官方 Web API 参考 |
 | [Perler Beads Generator](https://github.com/Jett-Wu/Perler_Beads_Generator) | MIT | 图像采样、最近色匹配和材料统计的处理阶段划分 |
+| [WeChat Mini Program Demo](https://github.com/wechat-miniprogram/miniprogram-demo) | MIT | `hand-detect` 的 VKSession 生命周期与 YUV WebGL 相机渲染经过裁剪和 TypeScript 改编后用于实时手势链路 |
 
 另考察了 [perler-beads](https://github.com/Zippland/perler-beads)（AGPL-3.0）和 [perler-studio](https://github.com/real-jiakai/perler-studio)；它们仅用于产品对比，没有使用其中代码。
+
+## WeChat Mini Program Demo license
+
+MIT License
+
+Copyright (c) 2018 wechat-miniprogram
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

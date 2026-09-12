@@ -8,4 +8,9 @@ describe('camera WXML interaction boundary', () => {
     expect(cameraWxml).toMatch(/class="interaction-layer"[\s\S]*catchtouchstart="onTouchStart"/)
     expect(cameraWxml).not.toMatch(/<view\s+class="camera-page"[^>]*catchtouchstart/)
   })
+
+  it('uses a WebGL camera surface for VisionKit with a native camera fallback', () => {
+    expect(cameraWxml).toMatch(/<canvas[\s\S]*type="webgl"[\s\S]*id="visionkit-canvas"/)
+    expect(cameraWxml).toMatch(/<camera[\s\S]*bindinitdone="onCameraReady"/)
+  })
 })

@@ -7,7 +7,15 @@ declare const wx: {
   navigateBack(options?: { delta?: number }): void;
   showToast(options: { title: string; icon?: 'success' | 'error' | 'loading' | 'none'; duration?: number }): void;
   pageScrollTo(options: { selector?: string; scrollTop?: number; duration?: number }): void;
-  getWindowInfo(): { windowWidth: number; windowHeight: number; statusBarHeight?: number };
+  getWindowInfo(): { windowWidth: number; windowHeight: number; pixelRatio?: number; statusBarHeight?: number };
+  nextTick(callback: () => void): void;
+  createSelectorQuery(): {
+    select(selector: string): {
+      node(): {
+        exec(callback: (result: Array<{ node?: any }>) => void): void;
+      };
+    };
+  };
   createCameraContext(): {
     onCameraFrame(callback: (frame: { data: ArrayBuffer; width: number; height: number }) => void): {
       start(): void;

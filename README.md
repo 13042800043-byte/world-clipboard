@@ -14,9 +14,9 @@
 ```text
 Camera
 → 选择 物体 / 颜色 / 轮廓
-→ 在画面中按住（模拟 Pinch）
-→ 拖动（Drag）
-→ 松开（Release / Copy）
+→ 真机中用拇指与食指捏合（开发者工具可按住模拟）
+→ 移动手势或触点（Drag）
+→ 松开捏合或触点（Release / Copy）
 → Clipboard
 → 拼豆模板
 → 32 × 32 拼豆图纸与色号统计
@@ -28,12 +28,13 @@ Camera 页右上角的 `MOCK / CAMERA` 可以切换演示背景。开发者工�
 
 - 原生 TypeScript / WXML / WXSS 工程与自定义双页面导航
 - 全屏后置 Camera、节流后的实时 Camera Frame Listener 与 Debug Mock Scene
+- 基于微信官方 VisionKit 的实时手部 Anchor、21 点适配、Spatial Cursor 与 Pinch 识别
 - 物体、颜色、轮廓三种捕捉模式
 - Spatial Cursor 与独立 Gesture State Machine
 - Touch / Mouse 模拟 Pinch、Grab、Drag、Release
 - 目标吸附、缩放和飞入 Clipboard 的 Copy 动画
 - 统一 `ClipboardItem` 数据模型和内存 Store
-- Mock Hand Tracker、Mock Segmentation Adapter、后端 API 请求契约
+- VisionKit Hand Tracker（不支持时自动降级）、Mock Segmentation Adapter、后端 API 请求契约
 - Clipboard 内容预览与五个 Paste Plugin 入口
 - 独立 `/plugins/perler` Mock 插件，输出 32 × 32 网格和材料统计
 
@@ -48,7 +49,7 @@ USE_MOCK_SEGMENTATION
 USE_MOCK_PERLER
 ```
 
-这些开关让 UI 与视觉模型解耦。当前第一阶段全部启用，保证吉客松现场没有模型或网络时也能稳定演示。
+这些开关让 UI 与视觉模型解耦。当前 `USE_MOCK_HAND_TRACKING` 默认关闭，真机优先使用 VisionKit；分割与拼豆仍为 Mock，保证没有后端或网络时也能稳定演示。
 
 ## 本地质量检查
 
@@ -83,12 +84,12 @@ miniprogram/
 
 ## 下一阶段
 
-1. 将 `MockHandTracker` 替换为真机可运行的 21 点 Hand Tracking Adapter。
+1. 在目标 iOS / Android 真机上校准 VisionKit 点位顺序、Pinch 阈值与坐标映射。
 2. 将 `MockSegmentationAdapter` 替换为 `POST /api/segment` 的点提示分割服务。
-3. 通过 Camera Frame Listener 校准预览裁切、旋转、镜像和坐标映射。
+3. 校准预览裁切、旋转、镜像和截图坐标映射。
 4. 把拼豆插件从 Mock 图案升级为透明 PNG 的裁切、量化、色卡映射与网格生成。
 
-当前代码不会假装真实 AI 已经完成：第一阶段只负责把 SEE → PINCH → GRAB → COPY → CREATE 的产品闭环可靠跑通。
+当前已接入真实 VisionKit 手部追踪；目标分割仍明确使用 Mock。第一阶段继续以 SEE → PINCH → GRAB → COPY → CREATE 的可靠闭环为准。
 
 ## 开源参考
 
@@ -96,4 +97,4 @@ miniprogram/
 
 微信工程结构与 TypeScript 配置同时对照了微信官方的 [miniprogram-demo](https://github.com/wechat-miniprogram/miniprogram-demo) 与 [API typings](https://github.com/wechat-miniprogram/api-typings)；触摸手势边界参考官方 [miniprogram-gesture](https://github.com/wechat-miniprogram/miniprogram-gesture) 示例。
 
-实时帧接入沿用官方 Camera 示例中的 [`createCameraContext` / `onCameraFrame`](https://github.com/wechat-miniprogram/miniprogram-demo/pull/32/files) 生命周期，并在进入后台或离开页面时停止监听。
+实时帧接入沿用官方 Camera 示例中的 [`createCameraContext` / `onCameraFrame`](https://github.com/wechat-miniprogram/miniprogram-demo/pull/32/files) 生命周期。VisionKit 会话与 YUV 相机渲染改编自官方 MIT 许可的 [`hand-detect`](https://github.com/wechat-miniprogram/miniprogram-demo/tree/master/miniprogram/packageAPI/pages/ar/hand-detect) 示例，并在进入后台或离开页面时释放。

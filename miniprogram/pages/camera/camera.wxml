@@ -6,7 +6,16 @@
     catchtouchend="onTouchEnd"
     catchtouchcancel="onTouchCancel"
   >
+  <canvas
+    wx:if="{{useVisionKit && !useMockScene}}"
+    class="camera-feed"
+    type="webgl"
+    id="visionkit-canvas"
+    aria-label="VisionKit 实时手势画面"
+  ></canvas>
+
   <camera
+    wx:elif="{{!useMockScene}}"
     class="camera-feed"
     device-position="back"
     flash="off"
@@ -65,7 +74,7 @@
   <view class="topbar">
     <view>
       <view class="brand">世界粘贴板</view>
-      <view class="brand-subtitle">{{useMockScene ? 'World Clipboard · Mock' : frameStatus}}</view>
+      <view class="brand-subtitle">{{useMockScene ? 'World Clipboard · Mock' : handStatus}}</view>
     </view>
     <button class="debug-chip" catchtap="onToggleScene">
       {{useMockScene ? 'MOCK' : 'CAMERA'}}
@@ -74,7 +83,7 @@
 
   <view class="bottom-controls">
     <capture-mode-selector active="{{mode}}" bindchange="onModeChange" />
-    <text class="bottom-hint">按住 = Pinch · 移动 = Drag · 松开 = Copy</text>
+    <text class="bottom-hint">{{useVisionKit ? '捏合 = Grab · 移动 = Drag · 松开 = Copy' : '按住 = Pinch · 移动 = Drag · 松开 = Copy'}}</text>
   </view>
 
   <view class="clipboard-target {{isCopying ? 'clipboard-target--active' : ''}}">

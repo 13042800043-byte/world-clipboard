@@ -1,6 +1,7 @@
 {
   "navigationStyle": "custom",
   "disableScroll": true,
+  "renderer": "webview",
   "usingComponents": {
     "capture-mode-selector": "/components/capture-mode-selector/capture-mode-selector",
     "spatial-cursor": "/components/spatial-cursor/spatial-cursor"
