@@ -14,10 +14,7 @@ import {
 } from '../../vision/frame-capture'
 import { MockHandTracker } from '../../vision/hand-tracker'
 import { MockSegmentationAdapter } from '../../vision/segmentation-adapter'
-import {
-  FallbackSegmentationAdapter,
-  RemoteSegmentationAdapter,
-} from '../../vision/remote-segmentation-adapter'
+import { RemoteSegmentationAdapter } from '../../vision/remote-segmentation-adapter'
 import { createVisionKitCameraRenderer } from '../../vision/visionkit-camera-renderer'
 import { VisionKitHandSession } from '../../vision/visionkit-hand-session'
 import {
@@ -30,10 +27,7 @@ const handTracker = new MockHandTracker()
 const mockSegmenter = new MockSegmentationAdapter()
 const segmenter = APP_CONFIG.USE_MOCK_SEGMENTATION
   ? mockSegmenter
-  : new FallbackSegmentationAdapter(
-      new RemoteSegmentationAdapter(APP_CONFIG.VISION_API_BASE_URL),
-      mockSegmenter,
-    )
+  : new RemoteSegmentationAdapter(APP_CONFIG.VISION_API_BASE_URL)
 const visionGestureAdapter = new VisionKitHandGestureAdapter()
 const visionSession = new VisionKitHandSession(
   (options) => wx.createVKSession(options),
@@ -345,13 +339,25 @@ Page({
       status: '正在复制现实…',
     })
 
-    const image = await this.captureFramePath()
-    const [item] = await Promise.all([
-      segmenter.segment({ image, point, mode: this.data.mode }),
-      new Promise((resolve) => setTimeout(resolve, APP_CONFIG.COPY_ANIMATION_MS)),
-    ])
-    clipboardStore.set(item)
-    wx.navigateTo({ url: '/pages/clipboard/clipboard' })
+    try {
+      const image = await this.captureFramePath()
+      const [item] = await Promise.all([
+        segmenter.segment({ image, point, mode: this.data.mode }),
+        new Promise((resolve) => setTimeout(resolve, APP_CONFIG.COPY_ANIMATION_MS)),
+      ])
+      clipboardStore.set(item)
+      wx.navigateTo({ url: '/pages/clipboard/clipboard' })
+    } catch (error) {
+      console.warn('Real segmentation failed', error)
+      spatialController.reset()
+      this.setData({
+        gesture: 'HOVERING',
+        isGrabbed: false,
+        isCopying: false,
+        status: '真实抠图失败 · 请检查视觉后端',
+      })
+      wx.showToast({ title: '真实抠图失败，请检查后端', icon: 'none', duration: 2600 })
+    }
   },
 
   async captureFramePath(): Promise<string> {

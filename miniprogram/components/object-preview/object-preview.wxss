@@ -1,27 +1,13 @@
 .preview { position: relative; width: 390rpx; height: 420rpx; animation: float-in 560ms cubic-bezier(.2,.8,.2,1) both; }
 .segmented-image { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 26rpx 24rpx rgba(25, 28, 31, 0.16)); }
-.shadow { position: absolute; left: 76rpx; bottom: 24rpx; width: 242rpx; height: 42rpx; border-radius: 50%; background: rgba(25, 28, 31, 0.1); filter: blur(16rpx); }
-.cat-head { position: absolute; z-index: 3; top: 74rpx; left: 74rpx; width: 242rpx; height: 198rpx; border-radius: 48% 48% 43% 43%; background: #f8f4ed; box-shadow: inset 0 -10rpx 0 rgba(197, 192, 183, 0.2); }
-.cat-ear { position: absolute; z-index: 2; top: 38rpx; width: 105rpx; height: 128rpx; background: #626669; transform: rotate(45deg); }
-.cat-ear--left { left: 74rpx; border-radius: 24rpx 12rpx 14rpx 10rpx; }
-.cat-ear--right { right: 74rpx; border-radius: 12rpx 24rpx 10rpx 14rpx; }
-.cat-patch { position: absolute; top: 0; right: 0; width: 126rpx; height: 98rpx; border-radius: 0 112rpx 0 98rpx; background: #626669; }
-.cat-eye { position: absolute; top: 88rpx; width: 25rpx; height: 34rpx; border-radius: 50%; background: #202223; box-shadow: inset 6rpx 4rpx 0 rgba(255, 255, 255, 0.72); }
-.cat-eye--left { left: 60rpx; }
-.cat-eye--right { right: 60rpx; }
-.cat-nose { position: absolute; top: 125rpx; left: 112rpx; width: 20rpx; height: 15rpx; border-radius: 50%; background: #e69b91; }
-.cat-mouth { position: absolute; top: 137rpx; width: 28rpx; height: 20rpx; border-bottom: 3rpx solid #967c78; border-radius: 50%; }
-.cat-mouth--left { left: 92rpx; transform: rotate(12deg); }
-.cat-mouth--right { right: 92rpx; transform: rotate(-12deg); }
-.cat-body { position: absolute; z-index: 2; bottom: 26rpx; left: 100rpx; width: 190rpx; height: 190rpx; border-radius: 48% 48% 40% 40%; background: #f7f1e9; box-shadow: inset 0 -12rpx 0 rgba(197, 192, 183, 0.2); }
-.collar { position: absolute; top: 21rpx; left: 13rpx; width: 164rpx; height: 16rpx; border-radius: 10rpx; background: #c44e43; }
-.bell { position: absolute; z-index: 2; top: 22rpx; left: 79rpx; color: #d5a62e; font-size: 42rpx; }
-.paw { position: absolute; bottom: -7rpx; width: 75rpx; height: 70rpx; border-radius: 50%; background: #f8f3eb; box-shadow: inset 0 -7rpx 0 rgba(197, 192, 183, 0.18); }
-.paw--left { left: -15rpx; }
-.paw--right { right: -15rpx; }
 .color-swatch { position: absolute; top: 34rpx; left: 20rpx; width: 350rpx; height: 350rpx; border: 16rpx solid #ffffff; border-radius: 50%; box-shadow: 0 30rpx 70rpx rgba(30, 33, 35, 0.12); }
-.outline-cat { position: absolute; top: 92rpx; left: 85rpx; width: 220rpx; height: 248rpx; border: 10rpx solid #303336; border-radius: 46% 46% 42% 42%; }
-.outline-ear { position: absolute; top: -54rpx; width: 82rpx; height: 82rpx; border-top: 10rpx solid #303336; border-left: 10rpx solid #303336; background: #f6f7f9; transform: rotate(45deg); }
-.outline-ear--left { left: 12rpx; }
-.outline-ear--right { right: 12rpx; }
+.empty-preview { position: absolute; inset: 38rpx 10rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2rpx dashed #cfd3d6; border-radius: 28rpx; color: #777c80; background: rgba(255, 255, 255, 0.7); }
+.empty-preview__reticle { position: relative; width: 92rpx; height: 92rpx; margin-bottom: 24rpx; border: 3rpx solid #9da3a7; border-radius: 50%; }
+.empty-preview__reticle::before,.empty-preview__reticle::after { content: ''; position: absolute; background: #9da3a7; }
+.empty-preview__reticle::before { top: 43rpx; left: -16rpx; width: 124rpx; height: 2rpx; }
+.empty-preview__reticle::after { top: -16rpx; left: 44rpx; width: 2rpx; height: 124rpx; }
+.empty-preview__dot { position: absolute; top: 38rpx; left: 38rpx; width: 16rpx; height: 16rpx; border-radius: 50%; background: #656b6f; }
+.empty-preview__title,.empty-preview__hint { display: block; text-align: center; }
+.empty-preview__title { color: #33383b; font-size: 26rpx; font-weight: 650; }
+.empty-preview__hint { width: 280rpx; margin-top: 10rpx; font-size: 19rpx; line-height: 1.5; }
 @keyframes float-in { from { opacity: 0; transform: translateY(28rpx) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }

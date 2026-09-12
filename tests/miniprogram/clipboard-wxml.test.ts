@@ -9,8 +9,9 @@ describe('clipboard captured image rendering', () => {
     expect(clipboardWxml).toMatch(/<object-preview[\s\S]*preview-image="{{previewImage}}"/)
   })
 
-  it('renders the transparent PNG when it is present and keeps the mock illustration fallback', () => {
+  it('renders the transparent PNG or an honest empty state without fake content', () => {
     expect(previewWxml).toMatch(/<image\s+wx:if="{{previewImage}}"/)
-    expect(previewWxml).toMatch(/<block\s+wx:else/)
+    expect(previewWxml).toContain('尚未取得真实抠图')
+    expect(previewWxml).not.toContain('cat-')
   })
 })

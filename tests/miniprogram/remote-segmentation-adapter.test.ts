@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MockSegmentationAdapter } from '../../miniprogram/vision/segmentation-adapter';
-import {
-  FallbackSegmentationAdapter,
-  RemoteSegmentationAdapter,
-} from '../../miniprogram/vision/remote-segmentation-adapter';
+import { RemoteSegmentationAdapter } from '../../miniprogram/vision/remote-segmentation-adapter';
 
 const input = {
   image: 'tmp://frame.jpg',
@@ -45,15 +41,6 @@ describe('remote segmentation adapter', () => {
     });
 
     await expect(adapter.segment(input)).rejects.toThrow('invalid segmentation response');
-  });
-
-  it('falls back to the mock segmenter when the backend cannot be reached', async () => {
-    const remote = { segment: vi.fn().mockRejectedValue(new Error('offline')) };
-    const adapter = new FallbackSegmentationAdapter(remote, new MockSegmentationAdapter());
-
-    const item = await adapter.segment(input);
-
-    expect(item.previewImage).toBe('mock://cat-object');
   });
 
   it('aborts a stalled upload so the demo can fall back promptly', async () => {

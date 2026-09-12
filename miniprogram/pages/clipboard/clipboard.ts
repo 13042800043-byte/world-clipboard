@@ -65,9 +65,6 @@ function createFallbackItem(): ClipboardItem {
     id: 'fallback-object',
     type: 'object',
     createdAt: Date.now(),
-    previewImage: 'mock://cat-object',
-    maskImage: 'mock://cat-mask',
-    bbox: { x: 0.3, y: 0.28, width: 0.4, height: 0.48 },
     spatial: { x: 0.5, y: 0.56, scale: 1, rotation: 0 },
   }
 }

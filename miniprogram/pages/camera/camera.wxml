@@ -38,23 +38,13 @@
   <view
     class="captured captured--{{mode}} {{isGrabbed ? 'captured--grabbed' : ''}} {{isCopying ? 'captured--copying' : ''}}"
     style="left: {{objectX * 100}}%; top: {{objectY * 100}}%;"
-    aria-label="可抓取的模拟目标"
+    aria-label="空间选择区域"
   >
-    <block wx:if="{{mode === 'object'}}">
-      <view class="cat-ear cat-ear--left"></view>
-      <view class="cat-ear cat-ear--right"></view>
-      <view class="cat-head">
-        <view class="cat-patch"></view>
-        <view class="cat-eye cat-eye--left"></view>
-        <view class="cat-eye cat-eye--right"></view>
-        <view class="cat-nose"></view>
-      </view>
-      <view class="cat-body"><view class="cat-bell">●</view></view>
-    </block>
-    <view wx:elif="{{mode === 'color'}}" class="color-target"></view>
-    <view wx:else class="contour-target">
-      <view class="contour-ear contour-ear--left"></view>
-      <view class="contour-ear contour-ear--right"></view>
+    <view class="selection-reticle selection-reticle--{{mode}}">
+      <view class="selection-reticle__corner selection-reticle__corner--tl"></view>
+      <view class="selection-reticle__corner selection-reticle__corner--tr"></view>
+      <view class="selection-reticle__corner selection-reticle__corner--bl"></view>
+      <view class="selection-reticle__corner selection-reticle__corner--br"></view>
     </view>
   </view>
 
@@ -83,7 +73,7 @@
 
   <view class="bottom-controls">
     <capture-mode-selector active="{{mode}}" bindchange="onModeChange" />
-    <text class="bottom-hint">{{useVisionKit ? '捏合 = Grab · 移动 = Drag · 松开 = Copy' : '按住 = Pinch · 移动 = Drag · 松开 = Copy'}}</text>
+    <text class="bottom-hint">{{useVisionKit ? '拇指 + 食指对捏 · 保持 · 移动 · 张开' : '按住 · 移动 · 松开'}}</text>
   </view>
 
   <view class="clipboard-target {{isCopying ? 'clipboard-target--active' : ''}}">

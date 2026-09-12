@@ -77,18 +77,3 @@ export class RemoteSegmentationAdapter implements Segmenter {
     };
   }
 }
-
-export class FallbackSegmentationAdapter implements Segmenter {
-  constructor(
-    private readonly primary: Segmenter,
-    private readonly fallback: Segmenter,
-  ) {}
-
-  async segment(input: SegmentationInput): Promise<ClipboardItem> {
-    try {
-      return await this.primary.segment(input);
-    } catch {
-      return this.fallback.segment(input);
-    }
-  }
-}

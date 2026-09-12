@@ -28,15 +28,9 @@ export class MockSegmentationAdapter implements Segmenter {
     if (input.mode === 'contour') {
       return {
         ...base,
-        previewImage: 'mock://cat-contour',
-        maskImage: 'mock://cat-mask',
         contour: [[0.3, 0.2], [0.7, 0.2], [0.76, 0.72], [0.24, 0.72]],
       };
     }
-    return {
-      ...base,
-      previewImage: 'mock://cat-object',
-      maskImage: 'mock://cat-mask',
-    };
+    return base;
   }
 }
