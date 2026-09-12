@@ -7,6 +7,7 @@
     </view>
   </view>
 
+  <block wx:if="{{!activeTemplate}}">
   <view wx:if="{{!showPerler}}" class="hero">
     <view class="nav__type">{{typeLabel}}</view>
     <view class="hero__glow"></view>
@@ -41,6 +42,9 @@
       </view>
     </view>
   </view>
+
+  </block>
+  <paste-workspace wx:if="{{activeTemplate}}" kind="{{activeTemplate}}" item="{{item}}" bindclose="onPerlerExit" bindselect="onTemplateSelect" />
 
   <view wx:if="{{showPerler}}" id="perler-result" class="perler-section">
     <view class="perler-source">

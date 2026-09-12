@@ -5,6 +5,7 @@ import { getDeviceLayout } from '../../utils/device-layout'
 import { RemotePerlerGenerator } from '../../plugins/perler/perler-generator'
 import { buildPerlerRows, type PerlerRow } from '../../plugins/perler/perler-layout'
 import type { PerlerOptions } from '../../plugins/perler/perler-types'
+import { isTemplateKind } from '../../plugins/template-generator'
 
 const perlerGenerator = new RemotePerlerGenerator(APP_CONFIG.VISION_API_BASE_URL)
 let perlerGeneration = 0
@@ -12,10 +13,10 @@ let previewWriteQueue: Promise<void> = Promise.resolve()
 
 const templates = [
   { id: 'perler', label: '拼豆模板', active: false, disabled: false, widthClass: 'third' },
-  { id: 'sticker', label: '贴纸', active: false, disabled: true, widthClass: 'third' },
-  { id: 'pixel', label: '像素画', active: false, disabled: true, widthClass: 'third' },
-  { id: 'lego', label: 'LEGO 模板', active: false, disabled: true, widthClass: 'half' },
-  { id: 'cross-stitch', label: '十字绣', active: false, disabled: true, widthClass: 'half' },
+  { id: 'sticker', label: '贴纸', active: false, disabled: false, widthClass: 'third' },
+  { id: 'pixel', label: '像素画', active: false, disabled: false, widthClass: 'third' },
+  { id: 'lego', label: 'LEGO 模板', active: false, disabled: false, widthClass: 'half' },
+  { id: 'cross-stitch', label: '十字绣', active: false, disabled: false, widthClass: 'half' },
 ]
 
 Page({
@@ -30,6 +31,7 @@ Page({
     rgbText: '110, 116, 122',
     previewImage: '',
     templates,
+    activeTemplate: '',
     showPerler: false,
     perlerStatus: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
     perlerError: '',
@@ -55,9 +57,9 @@ Page({
     this.setData(getDeviceLayout())
     wx.setNavigationBarColor?.({ frontColor: '#000000', backgroundColor: '#f6f7f9' })
     const item = clipboardStore.get() || createFallbackItem()
-    if (this.data.item.id === item.id && this.data.showPerler) {
+    if (this.data.item.id === item.id && (this.data.showPerler || this.data.activeTemplate)) {
       this.setData({ previewOpening: false })
-      if (this.data.perlerStatus === 'loading') void this.generatePerler()
+      if (this.data.showPerler && this.data.perlerStatus === 'loading') void this.generatePerler()
       return
     }
     const color = item.color || { hex: '#6E747A', rgb: [110, 116, 122] as [number, number, number] }
@@ -68,6 +70,7 @@ Page({
       rgbText: color.rgb.join(', '),
       previewImage: getRealPreview(item.previewImage),
       showPerler: false,
+      activeTemplate: '',
       perlerStatus: 'idle',
       perlerError: '',
       perlerRows: [],
@@ -87,13 +90,22 @@ Page({
 
   onPerlerExit() {
     perlerGeneration++
-    this.setData({ showPerler: false, perlerStatus: 'idle', previewOpening: false, templates: templates.map(template => ({ ...template, active: false })) })
+    this.setData({ showPerler: false, activeTemplate: '', perlerStatus: 'idle', previewOpening: false, templates: templates.map(template => ({ ...template, active: false })) })
     wx.pageScrollTo({ scrollTop: 0, duration: 200 })
   },
 
   async onTemplateSelect(event: { detail: { id: string } }) {
+    const id = event.detail.id
+    if (isTemplateKind(id)) {
+      perlerGeneration++
+      this.setData({ activeTemplate: id, showPerler: false, perlerStatus: 'idle', previewOpening: false,
+        templates: templates.map(template => ({ ...template, active: template.id === id })) })
+      wx.pageScrollTo({ scrollTop: 0, duration: 200 })
+      return
+    }
     if (event.detail.id !== 'perler' || this.data.perlerStatus === 'loading') return
     this.setData({
+      activeTemplate: '',
       showPerler: true,
       perlerStatus: 'loading',
       perlerError: '',

@@ -1,0 +1,49 @@
+<view class="workspace">
+  <view class="source">
+    <image class="source__image" src="{{item.previewImage}}" mode="aspectFit" aria-label="当前真实抠图" />
+    <view class="source__text"><text class="source__title">{{title}}</text><text class="hint">由真实抠图转换</text></view>
+    <button size="mini" class="option" bindtap="onClose" disabled="{{saving}}">返回模板</button>
+  </view>
+  <view class="row tabs">
+    <button size="mini" wx:for="{{plugins}}" wx:key="id" class="option {{kind === item.id ? 'active' : ''}}" data-kind="{{item.id}}" bindtap="onPlugin" disabled="{{saving}}">{{item.label}}</button>
+  </view>
+  <view class="controls">
+    <view wx:if="{{kind === 'sticker'}}" class="row">
+      <text class="label">白边</text>
+      <button size="mini" wx:for="{{borders}}" wx:key="*this" class="option {{options.border === item ? 'active' : ''}}" data-setting="border" data-value="{{item}}" bindtap="onOption" disabled="{{status === 'loading' || saving}}">{{item === 0 ? '无白边' : item + ' px'}}</button>
+    </view>
+    <block wx:else>
+      <view class="row"><text class="label">网格</text><button size="mini" wx:for="{{sizes}}" wx:key="*this" class="option {{options.size === item ? 'active' : ''}}" data-setting="size" data-value="{{item}}" bindtap="onOption" disabled="{{status === 'loading' || saving}}">{{item}} 格</button></view>
+      <view class="row"><text class="label">色数</text><button size="mini" wx:for="{{limits}}" wx:key="*this" class="option {{options.maxColors === item ? 'active' : ''}}" data-setting="maxColors" data-value="{{item}}" bindtap="onOption" disabled="{{status === 'loading' || saving}}">≤ {{item}}</button></view>
+    </block>
+    <text class="hint">{{kind === 'sticker' ? '保留原图细节 · 棋盘格仅用于预览，导出为透明 PNG' : kind === 'lego' ? '二维单层积木画 · 砖块不跨色、不填透明孔 · 配色为近似值' : kind === 'cross-stitch' ? '一格一针 · 空白不落针 · 本图色号不是 DMC 采购编号' : '保持轮廓比例 · 透明位置留空 · 不做模糊放大'}}</text>
+  </view>
+  <view wx:if="{{status === 'loading'}}" class="state"><view class="pulse"></view><text>正在生成{{title}}</text><text class="hint">整理透明边缘与模板图纸</text></view>
+  <view wx:elif="{{status === 'error'}}" class="state"><text>{{error}}</text><button size="mini" class="option" bindtap="generate">重新生成</button></view>
+  <block wx:elif="{{status === 'ready'}}">
+    <view class="row tabs">
+      <button size="mini" class="option {{view === 'preview' ? 'active' : ''}}" data-view="preview" bindtap="onView">{{result.previewLabel}}</button>
+      <button size="mini" class="option {{view === 'chart' ? 'active' : ''}}" data-view="chart" bindtap="onView">{{result.chartLabel}}</button>
+      <button size="mini" class="option" bindtap="onPreview">放大 ↗</button>
+    </view>
+    <text class="hint palette">{{result.paletteLabel}}</text>
+    <view class="card">
+      <image class="preview" src="{{currentImage}}" mode="widthFix" bindtap="onPreview" aria-label="点击放大当前模板" />
+      <view class="metrics"><view wx:for="{{result.metrics}}" wx:key="label" class="metric"><text class="hint">{{item.label}}</text><text class="metric__value">{{item.value}}</text></view></view>
+    </view>
+    <view class="row downloads">
+      <button size="mini" class="option active" data-asset="exportImage" bindtap="onSave" disabled="{{saving}}">{{saving ? '保存中…' : '保存' + result.exportLabel}}</button>
+      <button size="mini" wx:if="{{kind === 'sticker' || kind === 'pixel'}}" class="option" data-asset="chartImage" bindtap="onSave" disabled="{{saving}}">保存{{result.chartLabel}}</button>
+    </view>
+    <text wx:if="{{exportError}}" class="hint error">{{exportError}}</text>
+    <view class="notes"><text wx:for="{{result.notes}}" wx:key="*this" class="hint">{{item}}</text></view>
+    <view wx:if="{{result.materials.length}}" class="materials card">
+      <text class="materials__title">{{kind === 'lego' ? '砖块清单 · 按颜色与尺寸' : kind === 'cross-stitch' ? '本图绣线配色与针数' : '本图颜色统计'}}</text>
+      <view wx:for="{{result.materials}}" wx:key="id" class="material">
+        <view class="swatch" style="background: {{item.hex}};"></view>
+        <view class="material__text"><text>{{item.name}}</text><text class="hint">{{item.id}} · {{item.hex}}</text></view>
+        <text class="count">× {{item.count}} {{item.unit}}</text>
+      </view>
+    </view>
+  </block>
+</view>

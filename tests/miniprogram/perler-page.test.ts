@@ -17,6 +17,26 @@ beforeEach(async () => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); clipboardStore.clear() })
 
 describe('perler quality workspace', () => {
+  it('switches to LEGO while perler is pending and prevents the old result from replacing it', async () => {
+    let resolve: any
+    mocks.generate.mockReturnValueOnce(new Promise(r => { resolve = r }))
+    const pending = page.onTemplateSelect({ detail: { id: 'perler' } })
+    await page.onTemplateSelect({ detail: { id: 'lego' } })
+    resolve(result); await pending
+    expect(page.data.activeTemplate).toBe('lego')
+    expect(page.data.showPerler).toBe(false)
+    expect(page.data.perlerStatus).toBe('idle')
+  })
+  it.each(['sticker', 'pixel', 'lego', 'cross-stitch'])('opens the available %s workspace and preserves it across preview return', async id => {
+    expect(page.data.templates.find((template: any) => template.id === id).disabled).toBe(false)
+    await page.onTemplateSelect({ detail: { id } })
+    expect(page.data.activeTemplate).toBe(id)
+    expect(page.data.showPerler).toBe(false)
+    page.onHide(); page.onShow()
+    expect(page.data.activeTemplate).toBe(id)
+    page.onPerlerExit()
+    expect(page.data.activeTemplate).toBe('')
+  })
   it('requests a detailed MARD pattern and switches bead/chart previews', async () => {
     await page.onTemplateSelect({ detail: { id: 'perler' } })
     expect(mocks.generate).toHaveBeenCalledWith(expect.anything(), 64, { palette: 'mard221', style: 'realistic', maxColors: 16, includePreviews: true })
