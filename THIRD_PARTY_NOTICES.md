@@ -10,6 +10,8 @@
 | [MediaPipe Samples for Web](https://github.com/google-ai-edge/mediapipe-samples-web) | Apache-2.0 | 后续 Hand Landmarker 与 Interactive Segmenter 的官方 Web API 参考 |
 | [Perler Beads Generator](https://github.com/Jett-Wu/Perler_Beads_Generator) | MIT | 图像采样、最近色匹配和材料统计的处理阶段划分 |
 | [WeChat Mini Program Demo](https://github.com/wechat-miniprogram/miniprogram-demo) | MIT | `hand-detect` 的 VKSession 生命周期与 YUV WebGL 相机渲染经过裁剪和 TypeScript 改编后用于实时手势链路 |
+| [OpenCV](https://opencv.org/) | Apache-2.0 | 后端图像解码、GrabCut、连通区域筛选、缩放与 PNG 编码 |
+| [FastAPI](https://github.com/fastapi/fastapi) | MIT | 后端 multipart 上传、字段校验与 HTTP API |
 
 另考察了 [perler-beads](https://github.com/Zippland/perler-beads)（AGPL-3.0）和 [perler-studio](https://github.com/real-jiakai/perler-studio)；它们仅用于产品对比，没有使用其中代码。
 
