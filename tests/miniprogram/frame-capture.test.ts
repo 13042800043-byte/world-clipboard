@@ -5,6 +5,20 @@ import {
 } from '../../miniprogram/vision/frame-capture';
 
 describe('camera frame capture adapters', () => {
+  it('serializes writes so a cancelled older Grab cannot overwrite the next frame', async () => {
+    const pending: Array<{ success(): void }> = [];
+    const writeFile = vi.fn((options) => pending.push(options));
+    vi.stubGlobal('wx', { env: { USER_DATA_PATH: 'wxfile://usr' }, getFileSystemManager: () => ({ writeFile }) });
+    try {
+      const capture = new VisionKitCanvasCapture({ toDataURL: () => 'data:image/jpeg;base64,aGVsbG8=' });
+      const first = capture.capture(); const second = capture.capture();
+      await Promise.resolve(); await Promise.resolve();
+      expect(writeFile).toHaveBeenCalledTimes(1);
+      pending[0].success(); await first; await Promise.resolve();
+      expect(writeFile).toHaveBeenCalledTimes(2);
+      pending[1].success(); await second;
+    } finally { vi.unstubAllGlobals(); }
+  });
   it('exports the current VisionKit WebGL canvas as a JPEG file', async () => {
     const canvas = { toDataURL: vi.fn(() => 'data:image/jpeg;base64,aGVsbG8=') };
     const saveImage = vi.fn(async () => 'tmp://vk.jpg');

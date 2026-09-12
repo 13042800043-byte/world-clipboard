@@ -5,7 +5,7 @@
   height: 42rpx;
   pointer-events: none;
   transform: translate(-50%, -50%);
-  transition: left 50ms linear, top 50ms linear, transform 100ms ease;
+  transition: transform 100ms ease;
 }
 
 .cursor__dot {

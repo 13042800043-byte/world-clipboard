@@ -1,13 +1,26 @@
 import base64
+from io import BytesIO
 
 import cv2
 import numpy as np
+from PIL import Image
 from fastapi.testclient import TestClient
 
 from app.main import ApiError, _ensure_safe_image_dimensions, app
 
 
 client = TestClient(app)
+
+
+def test_camera_jpeg_is_decoded_in_exif_display_orientation() -> None:
+    # Frontend maps to oriented dimensions, matching IMREAD_COLOR in /segment.
+    source = Image.new("RGB", (100, 60), (30, 160, 30))
+    exif = source.getexif()
+    exif[274] = 6
+    buffer = BytesIO()
+    source.save(buffer, format="JPEG", exif=exif)
+    decoded = cv2.imdecode(np.frombuffer(buffer.getvalue(), dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert decoded.shape[:2] == (100, 60)
 
 
 def test_health_reports_ready() -> None:

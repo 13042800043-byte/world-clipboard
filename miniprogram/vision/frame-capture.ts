@@ -4,6 +4,7 @@ export interface FrameCapture {
 
 type WebGLCaptureCanvas = { toDataURL(type: string, quality: number): string };
 type ImageWriter = (dataUrl: string) => Promise<string>;
+let captureWriteQueue: Promise<void> = Promise.resolve();
 
 function platformError(error: unknown): Error {
   if (error instanceof Error) return error;
@@ -21,7 +22,9 @@ function writeCaptureImage(dataUrl: string): Promise<string> {
   // One app-owned file is reused so repeated grabs never fill phone storage.
   const extension = match[1] === 'jpeg' ? 'jpg' : 'png';
   const filePath = `${wx.env.USER_DATA_PATH}/world-clipboard-frame.${extension}`;
-  return new Promise((resolve, reject) => {
+  // A cancelled Grab may still be writing when the next one starts. Serialize
+  // writes to the reused file so an older frame cannot overwrite a newer one.
+  const operation = captureWriteQueue.then(() => new Promise<string>((resolve, reject) => {
     wx.getFileSystemManager().writeFile({
       filePath,
       data: match[2],
@@ -29,7 +32,9 @@ function writeCaptureImage(dataUrl: string): Promise<string> {
       success: () => resolve(filePath),
       fail: (error) => reject(platformError(error)),
     });
-  });
+  }));
+  captureWriteQueue = operation.then(() => undefined, () => undefined);
+  return operation;
 }
 
 type CameraContext = {

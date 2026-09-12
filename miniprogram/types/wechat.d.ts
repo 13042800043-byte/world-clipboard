@@ -18,6 +18,7 @@ declare const wx: {
   showToast(options: { title: string; icon?: 'success' | 'error' | 'loading' | 'none'; duration?: number }): void;
   pageScrollTo(options: { selector?: string; scrollTop?: number; duration?: number }): void;
   getWindowInfo(): { windowWidth: number; windowHeight: number; pixelRatio?: number; statusBarHeight?: number };
+  getImageInfo(options: { src: string; success(result: { width: number; height: number; orientation?: string }): void; fail(error: unknown): void }): void;
   nextTick(callback: () => void): void;
   createSelectorQuery(): {
     select(selector: string): {

@@ -14,10 +14,10 @@
 ```text
 Camera
 → 选择 物体 / 颜色 / 轮廓
-→ 手掌朝向摄像头，将光标放进物体内部
+→ 手掌朝向摄像头，将食指光标放进物体内部并短暂停稳
 → 拇指与食指指尖对捏并保持约 0.15 秒（开发者工具可按住模拟）
 → 保持捏合并移动整只手（Drag）
-→ 张开两指或松开触点（Release / Copy）
+→ 张开两指或松开触点（Release / Copy，使用 Grab 时锁定的画面和选点）
 → Clipboard
 → 拼豆模板
 → 32 × 32 拼豆图纸与色号统计
@@ -35,7 +35,7 @@ Windows PowerShell（Python 3.12+）：
 cd backend
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 启动成功后访问 `http://127.0.0.1:8000/api/health`，应返回：
@@ -115,6 +115,8 @@ backend/
 ```
 
 ## 下一阶段
+
+Spatial GUI P0 已加入 One Euro 滤波、3 帧捏合/释放防抖、150ms 丢失宽限、捏合前选点锁定、Grab 帧保存及坐标调试层。改动原因、开关与真机验收见 [P0 记录](docs/spatial-p0.md)。这些改动仍需目标手机验证，不代表真实 Hover 轮廓或 SAM 分割已经完成。
 
 1. 在目标 iOS / Android 真机上校准 VisionKit 点位顺序、Pinch 阈值与坐标映射。
 2. 用真机样本校准 OpenCV GrabCut，并评估替换为 SAM / RMBG 的同接口 Adapter。

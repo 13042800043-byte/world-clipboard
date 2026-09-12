@@ -55,6 +55,20 @@
     visible="{{debugMode}}"
   />
 
+  <view wx:if="{{coordinateDebug}}" class="coordinate-debug">
+    <view class="coordinate-debug__raw" style="left: {{rawCursorX * 100}}%; top: {{rawCursorY * 100}}%;"></view>
+    <view wx:if="{{isGrabbed || isCopying}}" class="coordinate-debug__lock" style="left: {{selectionX * 100}}%; top: {{selectionY * 100}}%;">+</view>
+    <view class="coordinate-debug__panel">
+      <text>RAW 橙圈 · FILTER 白点 · LOCK 十字</text>
+      <text>{{debugGesture}}</text>
+      <text>{{debugPoint}}</text>
+      <view wx:if="{{debugFrame}}" class="coordinate-debug__frame" style="height: {{180 * debugFrameHeight / debugFrameWidth}}rpx;">
+        <image src="{{debugFrame}}" mode="scaleToFill" />
+        <view class="coordinate-debug__prompt" style="left: {{framePointX * 100}}%; top: {{framePointY * 100}}%;">+</view>
+      </view>
+    </view>
+  </view>
+
   <view class="instruction {{isGrabbed ? 'instruction--active' : ''}}">
     <text class="instruction__state">{{gesture}}</text>
     <text>{{status}}</text>

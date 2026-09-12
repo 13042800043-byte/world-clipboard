@@ -9,6 +9,14 @@
 
 .interaction-layer { position: absolute; inset: 0; }
 
+.coordinate-debug { position: absolute; inset: 0; z-index: 19; pointer-events: none; }
+.coordinate-debug__raw { position: absolute; width: 18rpx; height: 18rpx; border: 2rpx solid #e9b67d; border-radius: 50%; transform: translate(-50%, -50%); }
+.coordinate-debug__lock, .coordinate-debug__prompt { position: absolute; color: #e9b67d; font-size: 32rpx; font-weight: 700; line-height: 1; transform: translate(-50%, -50%); text-shadow: 0 1rpx 4rpx #111; }
+.coordinate-debug__panel { position: absolute; top: calc(env(safe-area-inset-top) + 126rpx); left: 24rpx; max-width: 650rpx; padding: 12rpx; border-radius: 16rpx; background: rgba(0, 0, 0, .42); }
+.coordinate-debug__panel text { display: block; font-size: 17rpx; line-height: 1.6; color: rgba(255, 255, 255, .8); }
+.coordinate-debug__frame { position: relative; width: 180rpx; margin-top: 10rpx; overflow: hidden; border-radius: 8rpx; }
+.coordinate-debug__frame image { width: 100%; height: 100%; }
+
 .camera-feed,
 .mock-scene { position: absolute; inset: 0; width: 100%; height: 100%; }
 
@@ -79,7 +87,7 @@
   filter: drop-shadow(0 8rpx 14rpx rgba(0, 0, 0, 0.18));
 }
 
-.captured--grabbed { transform: translate(-50%, -50%) scale(0.94); filter: drop-shadow(0 0 16rpx rgba(255, 255, 255, 0.95)); }
+.captured--grabbed { transform: translate(-50%, -50%) scale(0.94); filter: drop-shadow(0 0 16rpx rgba(255, 255, 255, 0.95)); transition: transform 150ms ease, filter 150ms ease; }
 .captured--copying { left: 90% !important; top: 12% !important; opacity: 0.08; transform: translate(-50%, -50%) scale(0.14) rotate(8deg); }
 
 .selection-reticle { position: absolute; inset: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1rpx rgba(255, 255, 255, 0.22); }
