@@ -27,7 +27,17 @@ Camera
 
 默认使用干净的演示界面，仍可按住屏幕模拟 Grab / Drag / Release。需要调试背景时，把 `miniprogram/config.ts` 的 `SHOW_DEBUG_CONTROLS` 改为 `true`，显示 `MOCK / CAMERA` 切换按钮；需要 RAW / FILTER / LOCK 面板时，另将 `miniprogram/vision/vision-config.ts` 的 `showCoordinateDebug` 改为 `true`。Mock 只验证光标与 Grab 动效，不生成虚构动物或伪造抠图结果。
 
-真实抠图需要先启动本仓库自带的 Python 服务；服务不可达或超过 8 秒时，相机页会明确提示失败，不再用假图片伪装成功。
+物体 / 轮廓的真实抠图需要先启动本仓库自带的 Python 服务；服务不可达或超过 8 秒时，相机页会明确提示失败，不再用假图片伪装成功。**颜色抓取在小程序端读取照片，不需要分割后端。**
+
+### 颜色抓取
+
+选择底部「颜色」→ 将光标放在要取的颜色内部，避开边缘、高光和手指遮挡 → 捏合并稳住手机（工具中可按住屏幕模拟）→ 松开 → Clipboard 显示色块、HEX 与 RGB。取色位置使用最初 Grab 锁定的照片坐标，不使用拖动终点。
+
+已修复 `color capture is handled on device`：此前最终 Grab 无条件进入分割器，导致颜色被后端 Adapter 拒绝。现在颜色独立走 `PhotoColorCapture`，在离屏 2D Canvas 读取最多 9×9 邻域、去掉最暗 / 最亮各 20% 后求均值；物体 / 轮廓仍走原分割流程。照片边缘裁切邻域，不拉伸或读越界；空像素、加载失败 / 超时给出本地错误，不伪造黑色。分割控制器的类型也明确排除颜色。
+
+2D 离屏 API 使用新版 object 参数和画布自身的 `createImage`，不混用 VisionKit WebGL 图片；签名核对了[微信官方 API typings](https://github.com/wechat-miniprogram/api-typings/blob/master/types/wx/lib.wx.api.d.ts)，以及 [OffscreenCanvas 文档](https://www-sg.tencentcloud.com/document/product/1219/57691)。当前工程基础库 3.17.3，符合该 API 需要的 2.16.1+；如果运行环境不支持，会明确提示升级微信。
+
+验证：新增锁点颜色分流、邻域去极值、边缘采样、空像素和超时 / 迟到回调测试，159 项前端测试、小程序 TypeScript 和两页 WXML/WXSS 编译通过。手势算法、照片锁点 / 拍照交接和后端未改。颜色来自相机 RGB，会受自动白平衡、曝光与光照影响，不是经过实物校色的测色仪；不同手机的照片方向 / 实际取色对应关系仍需真机测试。关闭旧小程序、重新编译并生成新预览后生效。
 
 ## 启动视觉后端
 
