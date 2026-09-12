@@ -3,7 +3,7 @@ import type { VisionKitFrame, VisionKitFrameRenderer } from './visionkit-hand-se
 export type VisionKitWebGLCanvas = {
   width: number;
   height: number;
-  getContext(type: 'webgl'): any;
+  getContext(type: 'webgl', attributes?: { preserveDrawingBuffer?: boolean }): any;
 };
 
 type CameraFrame = {
@@ -50,7 +50,7 @@ const FRAGMENT_SHADER = `
 export function createVisionKitCameraRenderer(
   canvas: VisionKitWebGLCanvas,
 ): VisionKitFrameRenderer {
-  const gl = canvas.getContext('webgl');
+  const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
   if (!gl) throw new Error('VisionKit requires a WebGL canvas');
 
   const program = createProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);

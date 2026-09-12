@@ -349,26 +349,31 @@ Page({
       wx.navigateTo({ url: '/pages/clipboard/clipboard' })
     } catch (error) {
       console.warn('Real segmentation failed', error)
+      const detail = error instanceof Error ? error.message : '未知错误'
       spatialController.reset()
       this.setData({
         gesture: 'HOVERING',
         isGrabbed: false,
         isCopying: false,
-        status: '真实抠图失败 · 请检查视觉后端',
+        status: `真实抠图失败 · ${detail}`,
       })
-      wx.showToast({ title: '真实抠图失败，请检查后端', icon: 'none', duration: 2600 })
+      wx.showToast({ title: `抓取失败：${detail}`, icon: 'none', duration: 3600 })
     }
   },
 
   async captureFramePath(): Promise<string> {
-    if (!this.data.useMockScene && frameCapture) {
-      try {
-        return await frameCapture.capture()
-      } catch (error) {
-        console.warn('Frame capture unavailable, using demo content', error)
-      }
+    if (this.data.useMockScene) {
+      throw new Error('当前为 MOCK 画面，请切回 CAMERA')
     }
-    return latestFrame ? 'camera://latest-frame' : 'mock://camera-frame'
+    if (!frameCapture) {
+      throw new Error('摄像头画面尚未准备好')
+    }
+    try {
+      return await frameCapture.capture()
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '未知平台错误'
+      throw new Error(`画面导出失败：${detail}`)
+    }
   },
 
   onTouchCancel() {

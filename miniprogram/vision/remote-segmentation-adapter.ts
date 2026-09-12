@@ -14,6 +14,30 @@ type UploadOptions = {
 type UploadTask = { abort?(): void };
 type UploadFile = (options: UploadOptions) => UploadTask | void;
 
+function normalizeUploadError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  if (error && typeof error === 'object' && 'errMsg' in error) {
+    const message = (error as { errMsg?: unknown }).errMsg;
+    if (typeof message === 'string' && message) return new Error(message);
+  }
+  return new Error('uploadFile failed without an error message');
+}
+
+function backendErrorMessage(data: string): string | undefined {
+  try {
+    const payload = JSON.parse(data) as unknown;
+    if (!payload || typeof payload !== 'object' || !('error' in payload)) return undefined;
+    const apiError = (payload as { error?: unknown }).error;
+    if (!apiError || typeof apiError !== 'object' || !('message' in apiError)) return undefined;
+    const message = (apiError as { message?: unknown }).message;
+    return typeof message === 'string' && message.trim()
+      ? message.trim().slice(0, 120)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export class RemoteSegmentationAdapter implements Segmenter {
   constructor(
     private readonly baseUrl: string,
@@ -51,7 +75,11 @@ export class RemoteSegmentationAdapter implements Segmenter {
         },
         success(result) {
           if (result.statusCode < 200 || result.statusCode >= 300) {
-            finish(() => reject(new Error(`segmentation request failed (${result.statusCode})`)));
+            const detail = backendErrorMessage(result.data);
+            const message = detail
+              ? `segmentation request failed (${result.statusCode}): ${detail}`
+              : `segmentation request failed (${result.statusCode})`;
+            finish(() => reject(new Error(message)));
             return;
           }
           try {
@@ -61,7 +89,7 @@ export class RemoteSegmentationAdapter implements Segmenter {
             finish(() => reject(error));
           }
         },
-        fail: (error) => finish(() => reject(error)),
+        fail: (error) => finish(() => reject(normalizeUploadError(error))),
       });
     });
 

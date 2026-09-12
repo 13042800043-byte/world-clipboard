@@ -25,4 +25,9 @@ describe('camera WXML interaction boundary', () => {
     expect(cameraSource).not.toContain('FallbackSegmentationAdapter')
     expect(cameraSource).toContain('真实抠图失败')
   })
+
+  it('never replaces a failed real frame export with a fake upload path', () => {
+    expect(cameraSource).not.toContain("'camera://latest-frame'")
+    expect(cameraSource).not.toContain("'mock://camera-frame'")
+  })
 })

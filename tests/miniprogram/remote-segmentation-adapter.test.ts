@@ -43,6 +43,27 @@ describe('remote segmentation adapter', () => {
     await expect(adapter.segment(input)).rejects.toThrow('invalid segmentation response');
   });
 
+  it('turns wx.uploadFile failures into actionable errors', async () => {
+    const adapter = new RemoteSegmentationAdapter('http://192.168.67.18:8000', (options) => {
+      options.fail({ errMsg: 'uploadFile:fail socket timeout' });
+    });
+
+    await expect(adapter.segment(input)).rejects.toThrow('uploadFile:fail socket timeout');
+  });
+
+  it('surfaces the backend error message for rejected captures', async () => {
+    const adapter = new RemoteSegmentationAdapter('http://192.168.67.18:8000', (options) => {
+      options.success({
+        statusCode: 422,
+        data: JSON.stringify({
+          error: { code: 'SEGMENTATION_FAILED', message: 'no foreground around the grab point' },
+        }),
+      });
+    });
+
+    await expect(adapter.segment(input)).rejects.toThrow('no foreground around the grab point');
+  });
+
   it('aborts a stalled upload so the demo can fall back promptly', async () => {
     vi.useFakeTimers();
     const abort = vi.fn();
