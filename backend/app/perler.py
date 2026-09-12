@@ -56,7 +56,7 @@ def _distances(rgb: np.ndarray, colors: np.ndarray) -> np.ndarray:
 
 
 def _nearest(rgb: np.ndarray, colors: np.ndarray) -> np.ndarray:
-    # Bound working memory even on a 64×64 board with 49 samples per cell.
+    # Bound distance-matrix working memory for both 49/81-sample cell modes.
     return np.concatenate([np.argmin(_distances(rgb[i:i + 4096], colors), axis=1)
                            for i in range(0, len(rgb), 4096)])
 
@@ -98,6 +98,31 @@ def _cleanup(grid: np.ndarray, colors: np.ndarray) -> np.ndarray:
     return cleaned
 
 
+def _preserve_dark_strokes(primary: np.ndarray, rgb: np.ndarray, weights: np.ndarray,
+                           mapped: np.ndarray, colors: np.ndarray, visible: np.ndarray,
+                           height: int, width: int) -> np.ndarray:
+    """Retain sampled, coherent minority ink; do not invent/dilate an outline."""
+    luma_weights = np.array([0.299, 0.587, 0.114], dtype=np.float32)
+    luminance = rgb @ luma_weights
+    # Only high-coverage interior cells: invisible RGB cannot become an ink line.
+    median = np.median(np.where(weights > 0, luminance, 255), axis=1)
+    ink = (luminance < 150) & (luminance < median[:, None] - 30) & (weights > 0)
+    ink_weights = weights * ink
+    fraction = ink_weights.sum(axis=1) / np.maximum(weights.sum(axis=1), 1e-6)
+    votes = np.zeros((len(primary), len(colors)), dtype=np.float32)
+    np.add.at(votes, (np.arange(len(primary))[:, None], mapped), ink_weights)
+    ink_match = np.argmax(votes, axis=1)
+    candidate_luma = colors[ink_match] @ luma_weights
+    eligible = visible & (weights.mean(axis=1) >= 0.7) & (fraction >= 0.10) & (fraction <= 0.45)
+    eligible &= (candidate_luma < 160) & (candidate_luma < median - 25)
+    field = eligible.reshape(height, width).astype(np.float32)
+    neighbors = cv2.filter2D(field, -1, np.ones((3, 3), dtype=np.float32), borderType=cv2.BORDER_CONSTANT)
+    # Gating, NOT dilation: isolated samples disappear; a supported stroke stays
+    # inside its own sampled cell and uses an existing selected palette color.
+    supported = eligible & (neighbors.ravel() >= 2)
+    return np.where(supported, ink_match, primary)
+
+
 def generate_perler(image: np.ndarray, size: int = 32, *, palette: str = "legacy",
                     style: str = "realistic", max_colors: int = 16) -> dict[str, object]:
     """Fit a transparent cutout into a square bead grid and quantize its colors."""
@@ -129,7 +154,7 @@ def generate_perler(image: np.ndarray, size: int = 32, *, palette: str = "legacy
     # imageToBeads.ts. Keep PNG alpha, NOT edge-color background guessing:
     # white objects and enclosed transparent holes must survive.
     # https://github.com/Jett-Wu/Perler_Beads_Generator/blob/main/src/imageToBeads.ts
-    side = 7 if style == "cartoon" else 5
+    side = 7 if style == "cartoon" else 9
     ys = np.minimum(crop_height - 1, ((np.arange(target_height)[:, None] + (np.arange(side) + 0.5) / side) * crop_height / target_height).astype(int))
     xs = np.minimum(crop_width - 1, ((np.arange(target_width)[:, None] + (np.arange(side) + 0.5) / side) * crop_width / target_width).astype(int))
     samples = crop[ys[:, None, :, None], xs[None, :, None, :]].reshape(target_height * target_width, side * side, 4)
@@ -142,11 +167,17 @@ def generate_perler(image: np.ndarray, size: int = 32, *, palette: str = "legacy
     active_palette = PALETTES[palette]
     palette_rgb = np.asarray([color["rgb"] for color in active_palette], dtype=np.float32)
     rgb = samples[:, :, 2::-1].astype(np.float32)
-    mapped = _nearest(rgb.reshape(-1, 3), palette_rgb).reshape(len(samples), -1)
+    # Exact 24-bit deduplication, not coarser quantization: the 81 samples per
+    # cell often repeat the same color. Keep inverse indices for alpha voting.
+    channels = samples[:, :, :3].astype(np.uint32)
+    packed = (channels[:, :, 2] << 16) | (channels[:, :, 1] << 8) | channels[:, :, 0]
+    unique, inverse = np.unique(packed.ravel(), return_inverse=True)
+    unique_rgb = np.stack(((unique >> 16) & 255, (unique >> 8) & 255, unique & 255), axis=1).astype(np.float32)
+    mapped = _nearest(unique_rgb, palette_rgb)[inverse].reshape(len(samples), -1)
     counts = np.bincount(mapped[visible].ravel(), weights=weights[visible].ravel(), minlength=len(active_palette))
     selected = _candidates(counts, palette_rgb, max_colors)
     candidates_rgb = palette_rgb[selected]
-    mapped = _nearest(rgb.reshape(-1, 3), candidates_rgb).reshape(len(samples), -1)
+    mapped = _nearest(unique_rgb, candidates_rgb)[inverse].reshape(len(samples), -1)
     votes = np.zeros((len(samples), len(selected)), dtype=np.float32)
     np.add.at(votes, (np.arange(len(samples))[:, None], mapped), weights)
     primary = np.argmax(votes, axis=1)
@@ -155,6 +186,8 @@ def generate_perler(image: np.ndarray, size: int = 32, *, palette: str = "legacy
         average_match = _nearest(average, candidates_rgb)
         dominance = votes.max(axis=1) / np.maximum(weights.sum(axis=1), 1e-6)
         primary = np.where(dominance >= 0.26, primary, average_match)
+        primary = _preserve_dark_strokes(primary, rgb, weights, mapped, candidates_rgb,
+                                        visible, target_height, target_width)
     grid = np.where(visible, primary, -1).reshape(target_height, target_width)
     if style == "cartoon":
         grid = _cleanup(grid, candidates_rgb)

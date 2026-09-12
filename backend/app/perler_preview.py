@@ -17,8 +17,6 @@ def render_perler_preview(result: dict[str, object], *, chart: bool = False) -> 
             cell = result["cells"][y * size + x]
             left, top = margin + x * cell_size, margin + y * cell_size
             if cell["empty"]:
-                if not chart:
-                    draw.ellipse((left + 10, top + 10, left + 13, top + 13), fill="#E1E4E7")
                 continue
             color = cell["color"]
             if chart:
@@ -27,9 +25,9 @@ def render_perler_preview(result: dict[str, object], *, chart: bool = False) -> 
                 text_color = "#151719" if sum(a * b for a, b in zip(rgb, (0.299, 0.587, 0.114))) > 145 else "#FFFFFF"
                 draw.text((left + 12, top + 12), color_codes[color], font=font, fill=text_color, anchor="mm")
             else:
-                draw.ellipse((left + 2, top + 3, left + 22, top + 23), fill="#C9CDD1")
-                draw.ellipse((left + 1, top + 1, left + 21, top + 21), fill=color)
-                draw.ellipse((left + 8, top + 8, left + 14, top + 14), fill="#F6F7F9")
+                # Mobile thumbnail is for judging the pattern, not bead hardware:
+                # rings used only ~54% of each cell and washed out pale line art.
+                draw.rectangle((left, top, left + 23, top + 23), fill=color)
     if chart:
         for index in range(size + 1):
             position = margin + index * cell_size
