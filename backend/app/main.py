@@ -16,6 +16,10 @@ from app.perler import generate_perler
 from app.perler_preview import render_perler_preview
 from app.segmentation import resize_for_segmentation, segment_foreground
 from app.final_cutout import final_cutout
+from app.paste_plugins.sticker import generate_sticker
+from app.paste_plugins.pixel_art import generate_pixel_art
+from app.paste_plugins.lego import generate_lego
+from app.paste_plugins.cross_stitch import generate_cross_stitch
 
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -41,6 +45,13 @@ class PerlerRequest(BaseModel):
     style: Literal["cartoon", "realistic"] = "realistic"
     maxColors: int = Field(default=16, ge=2, le=64)
     includePreviews: bool = False
+
+
+class TemplateRequest(BaseModel):
+    image: str = Field(min_length=24, max_length=7_000_000)
+    size: Literal[32, 48, 64] = 32
+    maxColors: Literal[8, 16, 24] = 16
+    border: Literal[0, 8, 16] = 8
 
 
 class PromptPoint(BaseModel):
@@ -96,6 +107,40 @@ async def handle_validation_error(_: Request, __: RequestValidationError) -> JSO
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "segmenter": "opencv-grabcut"}
+
+
+@app.post('/api/templates/{kind}')
+def create_template(kind: Literal['sticker', 'pixel', 'lego', 'cross-stitch'], request: TemplateRequest) -> dict:
+    prefix = 'data:image/png;base64,'
+    if not request.image.startswith(prefix):
+        raise ApiError(422, 'INVALID_TEMPLATE_IMAGE', 'template input must be a PNG data URL')
+    try:
+        contents = base64.b64decode(request.image[len(prefix):], validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise ApiError(422, 'INVALID_TEMPLATE_IMAGE', 'invalid PNG base64') from error
+    if len(contents) > MAX_IMAGE_BYTES:
+        raise ApiError(413, 'IMAGE_TOO_LARGE', 'image must not exceed 5 MB')
+    try:
+        with Image.open(BytesIO(contents)) as source:
+            if source.format != 'PNG' or ('A' not in source.getbands() and 'transparency' not in source.info):
+                raise ApiError(422, 'INVALID_TEMPLATE_IMAGE', 'a transparent PNG cutout is required')
+            _ensure_safe_image_dimensions(*source.size)
+            rgba = np.asarray(source.convert('RGBA'))
+    except Image.DecompressionBombError as error:
+        raise ApiError(413, 'IMAGE_DIMENSIONS_TOO_LARGE', 'decoded image is too large') from error
+    except (UnidentifiedImageError, OSError) as error:
+        raise ApiError(422, 'INVALID_TEMPLATE_IMAGE', 'PNG could not be decoded') from error
+    bgra = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGRA)
+    try:
+        if kind == 'sticker':
+            result = generate_sticker(bgra, border=request.border)
+        else:
+            generator = {'pixel': generate_pixel_art, 'lego': generate_lego, 'cross-stitch': generate_cross_stitch}[kind]
+            result = generator(bgra, size=request.size, max_colors=request.maxColors)
+    except (ValueError, cv2.error) as error:
+        raise ApiError(422, 'TEMPLATE_GENERATION_FAILED', 'cutout could not be converted') from error
+    result.pop('grid', None)
+    return result
 
 
 @app.post("/api/segment")
