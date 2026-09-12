@@ -14,6 +14,8 @@
 
 新增 `POST /api/templates/{kind}`，kind 为 `sticker | pixel | lego | cross-stitch`；请求 `{image:PNG data URL,size:32|48|64,maxColors:8|16|24,border:0|8|16}`，可选参数有默认值。沿用现有图像大小安全限制及结构化错误。
 
+请求默认 size=32 / maxColors=16 / border=8，十字绣前端默认 48 格。必须为带 alpha / PNG transparency 的 PNG；JSON image 最长 7,000,000 字符、解码文件最多 5MB、最多 20MP，空前景拒绝，错误返回既有 `{error:{code,message}}`。输出 PNG 单张客户端上限 9,000,000 字符；输出尺寸由生成器固定边界约束（贴纸原图最长边 1024，排版 1200×1697，图纸最大 1592×1592），只落盘为固定的本地 PNG，不接受外部 URL。
+
 响应 `{kind,title,previewImage,chartImage,exportImage,previewLabel,chartLabel,exportLabel,paletteLabel,metrics:[{label,value}],materials:[{id,name,hex,count,unit}],notes:string[]}`。所有图片为 PNG data URL；客户端限定长度/形状，不接受任意远程 URL。LEGO 内部/响应附加 placements 记录每块砖 x/y/width/height/color，图纸显示相同坐标边界。
 
 后端 `app/paste_plugins/`：各转换独立模块，共享 PNG/棋盘预览/网格工具；前端 `plugins/{sticker,pixel-art,lego,cross-stitch}` 独立描述/生成接口，共享受检验的 transport 与导出工具。既有拼豆插件和旧 API 保留。

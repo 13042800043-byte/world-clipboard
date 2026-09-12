@@ -20,8 +20,9 @@ Camera
 → 稳住手机：Grab 锁定选点，自动获取高清静态照片
 → 张开两指或松开触点（Release / Copy，使用已锁定选点和高清照片）
 → Clipboard
-→ 拼豆模板
-→ 32 × 32 拼豆图纸与色号统计
+→ 拼豆 / 贴纸 / 像素画 / LEGO 平面拼搭 / 十字绣
+→ 调参数、预览图案与图纸（拼豆默认 64 × 64）
+→ 新插件可放大查看、保存 PNG
 ```
 
 默认使用干净的演示界面，仍可按住屏幕模拟 Grab / Drag / Release。需要调试背景时，把 `miniprogram/config.ts` 的 `SHOW_DEBUG_CONTROLS` 改为 `true`，显示 `MOCK / CAMERA` 切换按钮；需要 RAW / FILTER / LOCK 面板时，另将 `miniprogram/vision/vision-config.ts` 的 `showCoordinateDebug` 改为 `true`。Mock 只验证光标与 Grab 动效，不生成虚构动物或伪造抠图结果。
@@ -66,7 +67,31 @@ python -m venv .venv
 - 高清 Point + Box、扩边 ROI、目标连通域、轻量形态学与一次模糊重拍
 - 高清原图 RGB 保真，低清模型仅生成 Mask，不生成最终 RGB
 - Clipboard 内容预览与五个 Paste Plugin 入口
-- 独立 `/plugins/perler` 真实插件，从透明 PNG 生成 32 × 32 网格和材料统计
+- 独立 `/plugins/perler` 真实插件，可选 32 / 48 / 64 网格和材料统计
+- 贴纸、像素画、LEGO 平面拼搭、十字绣四个可用转换插件与原生工作区
+
+## 贴纸 / 像素画 / LEGO / 十字绣（2026-09-13）
+
+五个入口全部启用，仍使用 Camera / Clipboard 两页。**先抓取真实物体完成抠图，再点模板**；这里的“贴图”实现为透明贴纸，不是 3D UV 贴图。所有转换基于当前 RGBA PNG，不显示固定动物图，也不重复调用分割模型。新工作区顶部有原图小预览、四插件切换和「返回模板」。
+
+- **贴纸**：alpha 裁切、无白边 / 8px / 16px 白边；保留原图颜色，最长边上限 1024px。棋盘格仅用于预览；「保存透明贴纸 PNG」导出透明图片。「六枚排版」为 1200×1697 白底 PNG，可独立保存；打印尺寸由用户设置，不提供矢量刀线。白边会收紧透明小孔，必要时选无白边。
+- **像素画**：32 / 48 / 64 格、8 / 16 / 24 色上限、221 色 MARD 图像调色板；保持比例和透明孔，提供图案、坐标色号图及 nearest-neighbor 放大透明 PNG。小字/密纹仍受网格分辨率限制。
+- **LEGO**：**二维单层平面模板，不是 3D 重建**。同色格合并为 1×1、1×2、1×3、1×4、2×2、2×3、2×4 等常用规格（允许旋转）；坐标图的粗线表示每块砖的边界。清单按本图颜色 / 砖块尺寸统计，砖块数不是凸点数。不跨色、不覆盖空孔，采用较大规格优先，不保证全局最少砖数。底板另备；使用通用 13 色近似值，实际颜色 / 规格 / 库存需现场核实，不提供官方采购 ID。
+- **十字绣**：一格一针完整十字，空白不落针；绣制预览、坐标色号针位图、颜色针数和 14CT 全网格尺寸估算。通用 13 色、本图 T 色号不是 DMC 编号；不估计真实耗线长度，裁布另留装裱边。
+
+新插件均提供参数调整、读取 / 错误 / 重试、预览与图纸切换、放大以及保存 PNG。图片先写入十二个固定复用的 app-owned 文件，页面仅接收文件路径与小型元数据，不将三张大 PNG 塞进 `setData`。隐藏 / 离开 / 换插件会失效过期请求；从相册授权或原生放大返回保留已完成工作区，生成中被打断会重试。保存仅由用户点击触发；拒绝权限时会提示设置方法，不自动申请其它权限。微信 API 参考：[Image API](https://intl.cloud.tencent.com/jp/document/product/1219/57745)。
+
+`POST /api/templates/{kind}` 的契约、输入限制与验收项见 [插件说明](docs/paste-plugins-spec.md)，选择轻量后端生成与本地 PNG 展示的原因见 [ADR-001](docs/decisions/001-paste-plugins.md)。既有 `/api/perler` 和 `ClipboardItem` 不变，手势与抠图链路未修改；未增加模型或运行依赖。像素量化复用既有 MIT 算法与色卡，归属见 [第三方说明](THIRD_PARTY_NOTICES.md)。
+
+本轮验证：**153 项前端测试、99 项后端测试**、小程序 TypeScript、全套 WXML/WXSS 原生编译通过；`pnpm audit --prod` 未报告已知漏洞。当前后端已重启，使用配置中的 `http://192.168.67.18:8000` 完成四接口 HTTP 200 检查。48 格匿名合成包装的电脑往返（含三张 PNG）约为贴纸 262ms、像素 209ms、LEGO 339ms、十字绣 220ms；输出 PNG 已视觉检查，贴纸 / 像素导出为 RGBA，LEGO 120 块、十字绣 812 针均与材料统计一致。**不是手机实测或真实照片质量评分**；真机布局、透明 PNG 相册保存和实际拼搭 / 绣制仍待现场验证。
+
+复验命令（仓库根目录）：
+
+```powershell
+.\backend\.venv\Scripts\python.exe backend/scripts/verify_paste_plugins.py --api-url http://电脑局域网IP:8000 --output-dir test-results/paste-plugins
+```
+
+真机验收：完全关闭旧小程序 → 微信工具重新编译 / 预览 → 抓取真实物体 → 逐个打开四模板 → 调白边或网格 → 放大 → 返回后确认工作区保留 → 保存正确 PNG → 核对 LEGO 砖块边界 / 清单、十字绣针数 → 返回模板再进入。若报生成失败，先确认运行的是新版后端且日志出现 `/api/templates/... 200`；手机不能使用 `localhost / 127.0.0.1`，换网络后要更新局域网 IP。
 
 ## Mock 开关
 
@@ -167,13 +192,14 @@ miniprogram/
 ├── interaction/    # Spatial Controller 与状态机
 ├── vision/         # Hand / Segmentation / Color / Contour Adapter
 ├── clipboard/      # 基础数据模型与 Store
-├── plugins/perler/ # 拼豆插件，不侵入 Clipboard 核心
+├── plugins/        # perler / sticker / pixel-art / lego / cross-stitch 独立插件
 └── services/       # 视觉 API 契约与响应校验
 
 backend/
 ├── app/main.py          # FastAPI 上传接口与安全边界
 ├── app/segmentation.py  # OpenCV 点提示 GrabCut 管线
-└── app/perler.py        # 透明裁切、采样、色卡量化与统计
+├── app/perler.py        # 透明裁切、采样、色卡量化与统计
+└── app/paste_plugins/   # 贴纸、像素、平面积木、十字绣生成与图纸
 ```
 
 ## 下一阶段

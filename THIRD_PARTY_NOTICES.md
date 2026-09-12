@@ -26,6 +26,10 @@ Adapted source files (snapshot read 2026-09-12):
 Adaptation: `backend/app/perler.py`, palette data `backend/app/mard-palette.json`.
 Kept alpha-based foreground selection instead of upstream edge-color background guessing;
 used one conservative speckle pass instead of importing its full editor and region tooling.
+The pixel-art plugin reuses this adapted image quantization and MARD palette through
+`backend/app/paste_plugins/common.py`. LEGO/cross-stitch use the existing generic legacy
+palette, not copied LEGO/DMC inventory or brand procurement data. Sticker layout, flat
+same-color brick covering, and stitch preview rendering are project implementations.
 No code/data copied from AGPL Zippland/perler-beads or unlicensed perler-studio.
 
 MIT License
