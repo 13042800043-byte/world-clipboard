@@ -1,7 +1,6 @@
 """Check live LAN mode separation with a synthetic frame (not phone QA)."""
 import argparse
 import base64
-from io import BytesIO
 import json
 from pathlib import Path
 import time
@@ -41,6 +40,9 @@ def main():
         assert payload['mode'] == mode
         assert (mode != 'contour' or 3 <= len(payload['contour']) <= 1024)
         (output / f'{mode}.png').write_bytes(png)
+        alpha = previews[mode][:, :, 3:4].astype(float) / 255
+        white_preview = (previews[mode][:, :, :3] * alpha + 255 * (1 - alpha)).astype(np.uint8)
+        cv2.imwrite(str(output / f'{mode}-white-preview.png'), white_preview)
         report.append({'mode': mode, 'roundTripMs': elapsed, 'previewSize': previews[mode].shape[:2],
                        'vertices': len(payload.get('contour', []))})
     assert np.array_equal(previews['object'][:, :, 3], previews['contour'][:, :, 3])
