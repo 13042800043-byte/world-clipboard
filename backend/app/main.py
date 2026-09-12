@@ -1,4 +1,5 @@
 import base64
+import binascii
 from io import BytesIO
 from typing import Annotated, Literal
 
@@ -8,7 +9,9 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
+from pydantic import BaseModel, Field
 
+from app.perler import generate_perler
 from app.segmentation import resize_for_segmentation, segment_foreground
 
 
@@ -17,6 +20,11 @@ MAX_IMAGE_PIXELS = 20_000_000
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 app = FastAPI(title="World Clipboard Vision API", version="0.1.0")
+
+
+class PerlerRequest(BaseModel):
+    image: str = Field(min_length=24, max_length=3_000_000)
+    size: int = Field(default=32, ge=8, le=64)
 
 
 class ApiError(Exception):
@@ -41,7 +49,7 @@ async def handle_validation_error(_: Request, __: RequestValidationError) -> JSO
         content={
             "error": {
                 "code": "VALIDATION_ERROR",
-                "message": "mode and point coordinates must be valid",
+                "message": "request fields must be valid",
             }
         },
     )
@@ -91,6 +99,27 @@ async def segment(
         "mask": _png_data_url(result.mask),
         "bbox": result.bbox,
     }
+
+
+@app.post("/api/perler")
+async def perler(request: PerlerRequest) -> dict[str, object]:
+    prefix = "data:image/png;base64,"
+    if not request.image.startswith(prefix):
+        raise ApiError(422, "INVALID_PERLER_IMAGE", "perler input must be a PNG data URL")
+
+    try:
+        contents = base64.b64decode(request.image[len(prefix) :], validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise ApiError(422, "INVALID_PERLER_IMAGE", "perler image base64 is invalid") from error
+
+    image = cv2.imdecode(np.frombuffer(contents, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+    if image is None or image.ndim != 3 or image.shape[2] != 4:
+        raise ApiError(422, "INVALID_PERLER_IMAGE", "perler input must contain transparency")
+
+    try:
+        return generate_perler(image, request.size)
+    except ValueError as error:
+        raise ApiError(422, "PERLER_GENERATION_FAILED", str(error)) from error
 
 
 def _png_data_url(image: np.ndarray) -> str:

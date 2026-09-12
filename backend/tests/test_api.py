@@ -71,3 +71,30 @@ def test_image_dimension_guard_rejects_decompression_bombs() -> None:
         assert error.code == "IMAGE_DIMENSIONS_TOO_LARGE"
     else:
         raise AssertionError("expected excessive image dimensions to be rejected")
+
+
+def test_perler_accepts_transparent_png_and_returns_real_grid() -> None:
+    image = np.zeros((20, 40, 4), dtype=np.uint8)
+    image[5:15, 5:35] = (40, 40, 220, 255)
+    encoded, buffer = cv2.imencode(".png", image)
+    assert encoded
+    data_url = "data:image/png;base64," + base64.b64encode(buffer.tobytes()).decode("ascii")
+
+    response = client.post("/api/perler", json={"image": data_url, "size": 8})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["size"] == 8
+    assert len(payload["cells"]) == 64
+    assert payload["totalBeads"] == 24
+    assert payload["colors"][0]["name"] == "正红"
+
+
+def test_perler_rejects_non_png_payloads() -> None:
+    response = client.post(
+        "/api/perler",
+        json={"image": "data:text/plain;base64,bm90LWltYWdl", "size": 32},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_PERLER_IMAGE"
