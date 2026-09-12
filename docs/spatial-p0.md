@@ -20,13 +20,13 @@ WebGL 截图已应用 VisionKit displayTransform，上传点保持 identity，�
 
 ## 手势与选点
 
-参数统一在 `vision/vision-config.ts`：开始 `<0.28`、释放 `>0.42`，各连续 3 个有效观测。阈值间保持现状；非法观测不当作松手。
+参数统一在 `vision/vision-config.ts`：2026-09-12 响应修复后开始 `<0.34`、释放 `>0.48`，各连续 2 个独立有效观测（原先为 0.28 / 0.42、3 次观测）。阈值间保持现状；非法观测不当作松手，重复时间戳不会加速确认。实际手机识别延迟需真机测量。
 
 Hover 使用食指尖，Grab/Drag 用两指中点。One Euro 默认 minCutoff=1.5Hz、beta=8、derivativeCutoff=1Hz；`useOneEuroFilter` 可关闭。根据[算法作者说明](https://gery.casiez.net/1euro/)实现，参数是初始值，需真机慢动/快动校准，不声称测得真机帧率提升。
 
 首次 Pinch Candidate 冻结约 100ms 前 Hover 位置，以邻近样本中位数抗抖；selection 不跟随 Drag，过旧历史不带入下次抓取。Grab 时导出当前画面，Release 不重新拍照或取点。
 
-150ms 内丢失：冻结，不产生 HOLD/END；超过宽限：取消，不复制。抓取中丢失后要先稳定张开两指再捏合。watchdog 处理没有 removeAnchor 回调的情况；离页清理定时器并使旧异步结果失效。Touch 与 VisionKit 互斥；touchcancel 只取消；一次抓取最多一次上传/跳转。共享截图文件串行写入，避免旧写入覆盖新图。
+220ms 内丢失：冻结，不产生 HOLD/END；超过宽限：取消，不复制。抓取中丢失后要先稳定张开两指再捏合。watchdog 处理没有 removeAnchor 回调的情况；离页清理定时器并使旧异步结果失效。Touch 与 VisionKit 互斥；touchcancel 只取消；一次抓取最多一次上传/跳转。共享截图文件串行写入，避免旧写入覆盖新图。
 
 ## UI 与真机验收
 
