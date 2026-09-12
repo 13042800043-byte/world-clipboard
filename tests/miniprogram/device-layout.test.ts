@@ -29,6 +29,14 @@ describe('custom navigation on real devices', () => {
 })
 
 describe('mini program layout regression contracts', () => {
+  it('uses a block content wrapper for native button plugin labels and status', () => {
+    const wxml = readFileSync('miniprogram/components/template-card/template-card.wxml', 'utf8')
+    const style = readFileSync('miniprogram/components/template-card/template-card.wxss', 'utf8')
+    expect(wxml).toContain('<view class="card__content">')
+    expect(style.match(/\.card__content\s*\{([^}]+)\}/)?.[1]).toContain('flex-direction: column')
+    expect(style.match(/\.card__label\s*\{([^}]+)\}/)?.[1]).toContain('display: block')
+    expect(style.match(/\.card__state\s*\{([^}]+)\}/)?.[1]).toContain('display: block')
+  })
   it('opts custom buttons out of native default-sized button rules', () => {
     for (const file of [
       'components/template-card/template-card.wxml',
