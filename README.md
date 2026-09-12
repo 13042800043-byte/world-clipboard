@@ -91,7 +91,7 @@ USE_MOCK_SEGMENTATION
 - 无候选 bbox 的 GrabCut 搜索窗口改为选点周围半幅宽高、靠边直接裁切；有效候选 bbox 仍优先。它限制搜索范围，不等于识别出了目标边界。大物体应完整进入局部范围，或短暂停稳取得候选框；同色相连背景与透明瓶子仍可能分割错误，不能保证只输出瓶子，也不靠切断真实细杆伪造效果。
 - Camera YUV 公式已对照 [微信官方示例](https://github.com/wechat-miniprogram/miniprogram-demo/blob/master/miniprogram/packageAPI/pages/ar/hand-detect/yuvBehavior.js)，本次未修改颜色矩阵或 Gesture Engine。偏色尚未完成真机归因，需在相同光照、机位下对比 VisionKit 预览、原生 Camera 和高清照片，不应直接通过加对比度掩盖问题。
 
-验证：前端 92 项测试、后端 37 项测试通过；小程序 TypeScript、网页 build 通过。新增布局回归覆盖刘海屏、模拟器缺失胶囊；新增真实 GrabCut 合成场景覆盖相连桌面、近色背景、靠边选点和真实细杆。开发者工具 CLI 自动化连接因 IDE 端口超时未完成，WXML/WXSS 仍需点击编译并进行真机视觉复验，这些结果不代表已经完成手机验收。
+验证：前端 92 项测试、后端 37 项测试通过；小程序 TypeScript、网页 build 通过。开发者工具自带命令行编译器通过全部 6 个 WXML、7 个 WXSS，全部 9 个 JSON 解析通过。新增布局回归覆盖刘海屏、模拟器缺失胶囊；新增真实 GrabCut 合成场景覆盖相连桌面、近色背景、靠边选点和真实细杆。IDE 自动化连接因端口超时未完成，仍需点击编译并进行真机视觉复验，这些结果不代表已经完成手机验收。
 
 ## 本地质量检查
 
