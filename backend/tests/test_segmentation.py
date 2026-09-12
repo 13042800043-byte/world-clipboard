@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from app.segmentation import resize_for_segmentation, segment_foreground
+from app.segmentation import build_point_prompt_mask, resize_for_segmentation, segment_foreground
 
 
 def test_segment_foreground_returns_alpha_cutout_and_normalized_bbox() -> None:
@@ -50,3 +50,12 @@ def test_resize_for_segmentation_keeps_small_images_unchanged() -> None:
     resized = resize_for_segmentation(image, max_side=512)
 
     assert resized is image
+
+
+def test_point_prompt_mask_marks_cursor_as_certain_foreground() -> None:
+    mask = build_point_prompt_mask(100, 80, point=(0.5, 0.5))
+
+    assert mask[40, 50] == cv2.GC_FGD
+    assert mask[0, 0] == cv2.GC_BGD
+    assert np.count_nonzero(mask == cv2.GC_FGD) > 1
+    assert np.count_nonzero(mask == cv2.GC_PR_FGD) > 100

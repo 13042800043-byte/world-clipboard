@@ -38,18 +38,17 @@ def segment_foreground(
     if width < 4 or height < 4:
         raise ValueError("image is too small")
 
-    mask = np.zeros((height, width), dtype=np.uint8)
+    mask = build_point_prompt_mask(width, height, point)
     background_model = np.zeros((1, 65), dtype=np.float64)
     foreground_model = np.zeros((1, 65), dtype=np.float64)
-    rect = _prompt_rectangle(width, height, point)
     cv2.grabCut(
         bgr,
         mask,
-        rect,
+        (0, 0, 1, 1),
         background_model,
         foreground_model,
         3,
-        cv2.GC_INIT_WITH_RECT,
+        cv2.GC_INIT_WITH_MASK,
     )
 
     foreground = np.where(
@@ -76,6 +75,23 @@ def segment_foreground(
             "height": box_height / height,
         },
     )
+
+
+def build_point_prompt_mask(
+    width: int,
+    height: int,
+    point: tuple[float, float],
+) -> np.ndarray:
+    """Create a GrabCut mask with a small certain-foreground seed at the cursor."""
+    mask = np.full((height, width), cv2.GC_BGD, dtype=np.uint8)
+    left, top, box_width, box_height = _prompt_rectangle(width, height, point)
+    mask[top : top + box_height, left : left + box_width] = cv2.GC_PR_FGD
+
+    center_x = round(point[0] * (width - 1))
+    center_y = round(point[1] * (height - 1))
+    seed_radius = max(2, round(min(width, height) * 0.025))
+    cv2.circle(mask, (center_x, center_y), seed_radius, cv2.GC_FGD, thickness=-1)
+    return mask
 
 
 def _prompt_rectangle(
