@@ -34,8 +34,10 @@ export class RemoteSegmentationAdapter implements Segmenter {
         callback();
       };
       const timeout = setTimeout(() => {
-        if (task) task.abort?.();
-        finish(() => reject(new Error('segmentation request timed out')));
+        finish(() => {
+          if (task) task.abort?.();
+          reject(new Error('segmentation request timed out'));
+        });
       }, this.timeoutMs);
 
       task = this.uploadFile({

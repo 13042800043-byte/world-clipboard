@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import ApiError, _ensure_safe_image_dimensions, app
 
 
 client = TestClient(app)
@@ -61,3 +61,13 @@ def test_segment_rejects_invalid_coordinates_with_structured_error() -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_image_dimension_guard_rejects_decompression_bombs() -> None:
+    try:
+        _ensure_safe_image_dimensions(5000, 5000)
+    except ApiError as error:
+        assert error.status_code == 413
+        assert error.code == "IMAGE_DIMENSIONS_TOO_LARGE"
+    else:
+        raise AssertionError("expected excessive image dimensions to be rejected")

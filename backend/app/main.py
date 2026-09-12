@@ -1,4 +1,5 @@
 import base64
+from io import BytesIO
 from typing import Annotated, Literal
 
 import cv2
@@ -6,11 +7,13 @@ import numpy as np
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from PIL import Image, UnidentifiedImageError
 
 from app.segmentation import resize_for_segmentation, segment_foreground
 
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_IMAGE_PIXELS = 20_000_000
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 app = FastAPI(title="World Clipboard Vision API", version="0.1.0")
@@ -63,6 +66,14 @@ async def segment(
     if len(contents) > MAX_IMAGE_BYTES:
         raise ApiError(413, "IMAGE_TOO_LARGE", "image must not exceed 5 MB")
 
+    try:
+        with Image.open(BytesIO(contents)) as image_metadata:
+            _ensure_safe_image_dimensions(*image_metadata.size)
+    except Image.DecompressionBombError as error:
+        raise ApiError(413, "IMAGE_DIMENSIONS_TOO_LARGE", "decoded image is too large") from error
+    except (UnidentifiedImageError, OSError) as error:
+        raise ApiError(422, "INVALID_IMAGE", "uploaded bytes are not a valid image") from error
+
     frame = cv2.imdecode(np.frombuffer(contents, dtype=np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
         raise ApiError(422, "INVALID_IMAGE", "uploaded bytes are not a valid image")
@@ -88,3 +99,12 @@ def _png_data_url(image: np.ndarray) -> str:
         raise ApiError(500, "ENCODE_FAILED", "could not encode segmentation result")
     payload = base64.b64encode(buffer.tobytes()).decode("ascii")
     return f"data:image/png;base64,{payload}"
+
+
+def _ensure_safe_image_dimensions(width: int, height: int) -> None:
+    if width * height > MAX_IMAGE_PIXELS:
+        raise ApiError(
+            413,
+            "IMAGE_DIMENSIONS_TOO_LARGE",
+            "decoded image must not exceed 20 megapixels",
+        )

@@ -61,7 +61,12 @@ describe('remote segmentation adapter', () => {
     const abort = vi.fn();
     const adapter = new RemoteSegmentationAdapter(
       'http://127.0.0.1:8000',
-      () => ({ abort }),
+      (options) => ({
+        abort: () => {
+          abort();
+          options.fail(new Error('request:fail abort'));
+        },
+      }),
       50,
     );
 
