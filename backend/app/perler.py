@@ -47,9 +47,11 @@ def generate_perler(image: np.ndarray, size: int = 32) -> dict[str, object]:
     top, bottom = int(visible_y.min()), int(visible_y.max()) + 1
     crop = image[top:bottom, left:right]
     crop_height, crop_width = crop.shape[:2]
-    scale = min(size / crop_width, size / crop_height)
-    target_width = max(1, min(size, round(crop_width * scale)))
-    target_height = max(1, min(size, round(crop_height * scale)))
+    padding = max(1, round(size * 0.0625))
+    usable_size = size - padding * 2
+    scale = min(usable_size / crop_width, usable_size / crop_height)
+    target_width = max(1, min(usable_size, round(crop_width * scale)))
+    target_height = max(1, min(usable_size, round(crop_height * scale)))
 
     source_alpha = crop[:, :, 3].astype(np.float32) / 255.0
     premultiplied_bgr = crop[:, :, :3].astype(np.float32) * source_alpha[:, :, None]
@@ -68,8 +70,8 @@ def generate_perler(image: np.ndarray, size: int = 32) -> dict[str, object]:
         for x in range(size)
     ]
     counts: dict[str, int] = {}
-    offset_x = (size - target_width) // 2
-    offset_y = (size - target_height) // 2
+    offset_x = padding + (usable_size - target_width) // 2
+    offset_y = padding + (usable_size - target_height) // 2
 
     for y in range(target_height):
         for x in range(target_width):

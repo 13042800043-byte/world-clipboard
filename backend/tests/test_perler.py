@@ -14,10 +14,12 @@ def test_generate_perler_uses_alpha_shape_and_preserves_aspect_ratio() -> None:
     assert result["size"] == 8
     assert len(result["cells"]) == 64
     occupied = [cell for cell in result["cells"] if not cell["empty"]]
-    assert len(occupied) == 24
-    assert result["totalBeads"] == 24
-    assert sum(color["count"] for color in result["colors"]) == 24
+    assert len(occupied) == 12
+    assert result["totalBeads"] == 12
+    assert sum(color["count"] for color in result["colors"]) == 12
     assert result["colors"][0]["name"] == "正红"
+    assert all(cell["empty"] for cell in result["cells"][:8])
+    assert all(cell["empty"] for cell in result["cells"][-8:])
 
 
 def test_generate_perler_keeps_transparent_pixels_empty() -> None:

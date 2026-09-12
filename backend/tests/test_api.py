@@ -86,7 +86,7 @@ def test_perler_accepts_transparent_png_and_returns_real_grid() -> None:
     payload = response.json()
     assert payload["size"] == 8
     assert len(payload["cells"]) == 64
-    assert payload["totalBeads"] == 24
+    assert payload["totalBeads"] == 12
     assert payload["colors"][0]["name"] == "正红"
 
 
