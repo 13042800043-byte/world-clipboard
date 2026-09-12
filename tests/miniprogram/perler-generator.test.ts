@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ClipboardItem } from '../../miniprogram/clipboard/clipboard-types'
-import { RemotePerlerGenerator } from '../../miniprogram/plugins/perler/perler-generator'
+import { RemotePerlerGenerator, parsePerlerResult } from '../../miniprogram/plugins/perler/perler-generator'
 
 const capturedItem: ClipboardItem = {
   id: 'real-object',
@@ -23,6 +23,16 @@ function validResult(size = 8) {
 }
 
 describe('RemotePerlerGenerator', () => {
+  it('rejects remote URLs masquerading as PNG previews', () => {
+    expect(() => parsePerlerResult({ ...validResult(), chartPreview: 'https://untrusted.example/photo.png' })).toThrow('invalid perler preview')
+  })
+  it('sends optional quality settings without changing old callers', async () => {
+    const request = vi.fn((options) => options.success({ statusCode: 200, data: { ...validResult(48), paletteId: 'mard221', paletteSize: 221, style: 'cartoon', maxColors: 16, beadPreview: 'data:image/png;base64,YQ==', chartPreview: 'data:image/png;base64,Yg==' } }))
+    const result = await new RemotePerlerGenerator('http://test', request).generate(capturedItem, 48, { palette: 'mard221', style: 'cartoon', maxColors: 16, includePreviews: true })
+    expect(request.mock.calls[0][0].data).toEqual({ image: capturedItem.previewImage, size: 48, palette: 'mard221', style: 'cartoon', maxColors: 16, includePreviews: true })
+    expect(result.paletteId).toBe('mard221')
+    expect(result.chartPreview).toBe('data:image/png;base64,Yg==')
+  })
   it('generates the grid from the captured transparent PNG', async () => {
     const request = vi.fn((options) => options.success({ statusCode: 200, data: validResult(8) }))
     const generator = new RemotePerlerGenerator('http://127.0.0.1:8000', request)

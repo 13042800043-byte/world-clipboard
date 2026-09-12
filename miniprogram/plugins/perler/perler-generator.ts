@@ -1,11 +1,11 @@
 import type { ClipboardItem } from '../../clipboard/clipboard-types'
-import type { PerlerCell, PerlerColorCount, PerlerResult } from './perler-types'
+import type { PerlerCell, PerlerColorCount, PerlerResult, PerlerOptions } from './perler-types'
 
 type RequestOptions = {
   url: string
   method: 'POST'
   header: { 'content-type': 'application/json' }
-  data: { image: string; size: number }
+  data: { image: string; size: number } & PerlerOptions
   timeout: number
   success(result: { statusCode: number; data: unknown }): void
   fail(error: unknown): void
@@ -19,7 +19,7 @@ export class RemotePerlerGenerator {
     private readonly request: Request = (options) => wx.request(options),
   ) {}
 
-  async generate(item: ClipboardItem, size = 32): Promise<PerlerResult> {
+  async generate(item: ClipboardItem, size = 32, options: PerlerOptions = {}): Promise<PerlerResult> {
     const image = item.previewImage
     if (!image?.startsWith('data:image/png;base64,')) {
       throw new Error('请先完成真实物体抠图')
@@ -30,7 +30,7 @@ export class RemotePerlerGenerator {
         url: `${this.baseUrl.replace(/\/$/, '')}/api/perler`,
         method: 'POST',
         header: { 'content-type': 'application/json' },
-        data: { image, size },
+        data: { image, size, ...options },
         timeout: 8000,
         success(result) {
           if (result.statusCode < 200 || result.statusCode >= 300) {
@@ -79,7 +79,25 @@ export function parsePerlerResult(value: unknown): PerlerResult {
   if (occupied !== totalBeads || counted !== totalBeads) {
     throw new Error('invalid perler response')
   }
-  return { size, cells, colors, totalBeads }
+  const extras: Partial<PerlerResult> = {}
+  if (result.paletteId !== undefined) {
+    if (!['legacy', 'mard221', 'mard291'].includes(result.paletteId as string)
+      || !Number.isInteger(result.paletteSize) || (result.paletteSize as number) < 1
+      || !['cartoon', 'realistic'].includes(result.style as string)
+      || !Number.isInteger(result.maxColors) || (result.maxColors as number) < 2 || (result.maxColors as number) > 64) {
+      throw new Error('invalid perler response')
+    }
+    Object.assign(extras, { paletteId: result.paletteId, paletteSize: result.paletteSize, style: result.style, maxColors: result.maxColors })
+  }
+  for (const field of ['beadPreview', 'chartPreview'] as const) {
+    const preview = result[field]
+    if (preview !== undefined) {
+      if (typeof preview !== 'string' || preview.length > 4_000_000
+        || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(preview)) throw new Error('invalid perler preview')
+      extras[field] = preview
+    }
+  }
+  return { size, cells, colors, totalBeads, ...extras }
 }
 
 function isPerlerCell(value: unknown): value is PerlerCell {

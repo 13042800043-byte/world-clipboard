@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from starlette.concurrency import run_in_threadpool
 
 from app.perler import generate_perler
+from app.perler_preview import render_perler_preview
 from app.segmentation import resize_for_segmentation, segment_foreground
 from app.final_cutout import final_cutout
 
@@ -36,6 +37,10 @@ app = FastAPI(title="World Clipboard Vision API", version="0.1.0")
 class PerlerRequest(BaseModel):
     image: str = Field(min_length=24, max_length=28_000_000)
     size: int = Field(default=32, ge=8, le=64)
+    palette: Literal["legacy", "mard221", "mard291"] = "legacy"
+    style: Literal["cartoon", "realistic"] = "realistic"
+    maxColors: int = Field(default=16, ge=2, le=64)
+    includePreviews: bool = False
 
 
 class PromptPoint(BaseModel):
@@ -190,7 +195,13 @@ def perler(request: PerlerRequest) -> dict[str, object]:
         raise ApiError(422, "INVALID_PERLER_IMAGE", "perler input must contain transparency")
 
     try:
-        return generate_perler(image, request.size)
+        result = generate_perler(image, request.size, palette=request.palette,
+                                 style=request.style, max_colors=request.maxColors)
+        if request.includePreviews:
+            for name, chart in (("beadPreview", False), ("chartPreview", True)):
+                png = render_perler_preview(result, chart=chart)
+                result[name] = prefix + base64.b64encode(png).decode("ascii")
+        return result
     except ValueError as error:
         raise ApiError(422, "PERLER_GENERATION_FAILED", str(error)) from error
 

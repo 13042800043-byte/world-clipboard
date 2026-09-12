@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import TypedDict
 
 import cv2
@@ -30,13 +32,83 @@ PALETTE: list[PaletteColor] = [
 EMPTY_COLOR = "#EEF0F2"
 ALPHA_THRESHOLD = 0.18
 
+# MARD data adapted from Jett-Wu/Perler_Beads_Generator (MIT, copyright 2026 Jett-Wu).
+# Source: https://github.com/Jett-Wu/Perler_Beads_Generator/blob/main/src/palette.ts
+_mard = json.loads(Path(__file__).with_name("mard-palette.json").read_text(encoding="utf-8"))
 
-def generate_perler(image: np.ndarray, size: int = 32) -> dict[str, object]:
+
+def _make_palette(rows: list[dict[str, str]]) -> list[PaletteColor]:
+    return [{"id": row["id"], "name": f'MARD {row["id"]}', "hex": row["hex"],
+             "rgb": tuple(int(row["hex"][i:i + 2], 16) for i in (1, 3, 5))} for row in rows]
+
+
+PALETTES = {"legacy": PALETTE, "mard221": _make_palette(_mard["basic"]),
+            "mard291": _make_palette(_mard["basic"] + _mard["extended"])}
+
+
+def _distances(rgb: np.ndarray, colors: np.ndarray) -> np.ndarray:
+    """Red-mean perceptual weighting, ported from upstream palette.colorDistance."""
+    difference = rgb[:, None, :] - colors[None, :, :]
+    red_mean = (rgb[:, None, 0] + colors[None, :, 0]) / 2
+    return np.sqrt((2 + red_mean / 256) * difference[:, :, 0] ** 2
+                   + 4 * difference[:, :, 1] ** 2
+                   + (2 + (255 - red_mean) / 256) * difference[:, :, 2] ** 2)
+
+
+def _nearest(rgb: np.ndarray, colors: np.ndarray) -> np.ndarray:
+    # Bound working memory even on a 64×64 board with 49 samples per cell.
+    return np.concatenate([np.argmin(_distances(rgb[i:i + 4096], colors), axis=1)
+                           for i in range(0, len(rgb), 4096)])
+
+
+def _candidates(counts: np.ndarray, colors: np.ndarray, limit: int) -> np.ndarray:
+    available = np.flatnonzero(counts)
+    selected = [int(np.argmax(counts))]
+    chroma = np.ptp(colors, axis=1)
+    luminance = colors @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+    # Adapt upstream feature slots/diversity ranking: preserve dark lines and
+    # saturated accents instead of spending every slot on similar shadows.
+    while len(selected) < min(limit, len(available)):
+        distance = _distances(colors, colors[selected]).min(axis=1)
+        feature = np.where((chroma > 58) | (luminance < 48), 2.15, 1.0)
+        score = np.sqrt(counts) * np.clip(distance / 26, 0.35, 5.4) ** 1.55 * feature
+        score[counts == 0] = -1
+        score[selected] = -1
+        selected.append(int(np.argmax(score)))
+    return np.asarray(selected)
+
+
+def _cleanup(grid: np.ndarray, colors: np.ndarray) -> np.ndarray:
+    """One conservative speckle pass; never fill alpha holes or erase accents."""
+    cleaned = grid.copy()
+    height, width = grid.shape
+    for y in range(height):
+        for x in range(width):
+            current = grid[y, x]
+            if current < 0:
+                continue
+            neighbors = grid[max(0, y - 1):y + 2, max(0, x - 1):x + 2].ravel()
+            if np.count_nonzero(neighbors == current) > 1:
+                continue
+            occupied = neighbors[neighbors >= 0]
+            ids, counts = np.unique(occupied, return_counts=True)
+            replacement = ids[np.argmax(counts)]
+            if counts.max() >= 5 and _distances(colors[current:current + 1], colors[replacement:replacement + 1])[0, 0] < 26:
+                cleaned[y, x] = replacement
+    return cleaned
+
+
+def generate_perler(image: np.ndarray, size: int = 32, *, palette: str = "legacy",
+                    style: str = "realistic", max_colors: int = 16) -> dict[str, object]:
     """Fit a transparent cutout into a square bead grid and quantize its colors."""
     if image.ndim != 3 or image.shape[2] != 4:
         raise ValueError("perler input must be a BGRA image")
-    if size < 8 or size > 64:
+    if not isinstance(size, int) or size < 8 or size > 64:
         raise ValueError("grid size must be between 8 and 64")
+    if palette not in PALETTES or style not in ("cartoon", "realistic"):
+        raise ValueError("invalid perler palette or style")
+    if not isinstance(max_colors, int) or max_colors < 2 or max_colors > 64:
+        raise ValueError("max colors must be between 2 and 64")
 
     alpha = image[:, :, 3]
     visible_y, visible_x = np.where(alpha > 16)
@@ -53,17 +125,39 @@ def generate_perler(image: np.ndarray, size: int = 32) -> dict[str, object]:
     target_width = max(1, min(usable_size, round(crop_width * scale)))
     target_height = max(1, min(usable_size, round(crop_height * scale)))
 
-    source_alpha = crop[:, :, 3].astype(np.float32) / 255.0
-    premultiplied_bgr = crop[:, :, :3].astype(np.float32) * source_alpha[:, :, None]
-    interpolation = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
-    resized_alpha = cv2.resize(source_alpha, (target_width, target_height), interpolation=interpolation)
-    resized_premultiplied = cv2.resize(
-        premultiplied_bgr,
-        (target_width, target_height),
-        interpolation=interpolation,
-    )
-
-    palette_rgb = np.asarray([color["rgb"] for color in PALETTE], dtype=np.float32)
+    # Region sampling/voting and style thresholds adapted from upstream
+    # imageToBeads.ts. Keep PNG alpha, NOT edge-color background guessing:
+    # white objects and enclosed transparent holes must survive.
+    # https://github.com/Jett-Wu/Perler_Beads_Generator/blob/main/src/imageToBeads.ts
+    side = 7 if style == "cartoon" else 5
+    ys = np.minimum(crop_height - 1, ((np.arange(target_height)[:, None] + (np.arange(side) + 0.5) / side) * crop_height / target_height).astype(int))
+    xs = np.minimum(crop_width - 1, ((np.arange(target_width)[:, None] + (np.arange(side) + 0.5) / side) * crop_width / target_width).astype(int))
+    samples = crop[ys[:, None, :, None], xs[None, :, None, :]].reshape(target_height * target_width, side * side, 4)
+    weights = samples[:, :, 3].astype(np.float32) / 255
+    weights[samples[:, :, 3] < 24] = 0
+    coverage = weights.mean(axis=1)
+    visible = coverage >= (0.28 if style == "cartoon" else ALPHA_THRESHOLD)
+    if not visible.any():
+        raise ValueError("foreground is too small for this grid")
+    active_palette = PALETTES[palette]
+    palette_rgb = np.asarray([color["rgb"] for color in active_palette], dtype=np.float32)
+    rgb = samples[:, :, 2::-1].astype(np.float32)
+    mapped = _nearest(rgb.reshape(-1, 3), palette_rgb).reshape(len(samples), -1)
+    counts = np.bincount(mapped[visible].ravel(), weights=weights[visible].ravel(), minlength=len(active_palette))
+    selected = _candidates(counts, palette_rgb, max_colors)
+    candidates_rgb = palette_rgb[selected]
+    mapped = _nearest(rgb.reshape(-1, 3), candidates_rgb).reshape(len(samples), -1)
+    votes = np.zeros((len(samples), len(selected)), dtype=np.float32)
+    np.add.at(votes, (np.arange(len(samples))[:, None], mapped), weights)
+    primary = np.argmax(votes, axis=1)
+    if style == "realistic":
+        average = (rgb * weights[:, :, None]).sum(axis=1) / np.maximum(weights.sum(axis=1, keepdims=True), 1e-6)
+        average_match = _nearest(average, candidates_rgb)
+        dominance = votes.max(axis=1) / np.maximum(weights.sum(axis=1), 1e-6)
+        primary = np.where(dominance >= 0.26, primary, average_match)
+    grid = np.where(visible, primary, -1).reshape(target_height, target_width)
+    if style == "cartoon":
+        grid = _cleanup(grid, candidates_rgb)
     cells = [
         {"key": f"{x}-{y}", "color": EMPTY_COLOR, "empty": True}
         for y in range(size)
@@ -75,13 +169,10 @@ def generate_perler(image: np.ndarray, size: int = 32) -> dict[str, object]:
 
     for y in range(target_height):
         for x in range(target_width):
-            coverage = float(resized_alpha[y, x])
-            if coverage < ALPHA_THRESHOLD:
+            candidate = int(grid[y, x])
+            if candidate < 0:
                 continue
-            bgr = resized_premultiplied[y, x] / max(coverage, 1e-6)
-            rgb = bgr[::-1]
-            palette_index = int(np.argmin(np.sum((palette_rgb - rgb) ** 2, axis=1)))
-            palette_color = PALETTE[palette_index]
+            palette_color = active_palette[int(selected[candidate])]
             grid_x, grid_y = x + offset_x, y + offset_y
             cells[grid_y * size + grid_x] = {
                 "key": f"{grid_x}-{grid_y}",
@@ -93,9 +184,11 @@ def generate_perler(image: np.ndarray, size: int = 32) -> dict[str, object]:
 
     colors = [
         {"id": color["id"], "name": color["name"], "hex": color["hex"], "count": counts[color["id"]]}
-        for color in PALETTE
+        for color in active_palette
         if color["id"] in counts
     ]
     colors.sort(key=lambda color: color["count"], reverse=True)
     total_beads = sum(color["count"] for color in colors)
-    return {"size": size, "cells": cells, "colors": colors, "totalBeads": total_beads}
+    return {"size": size, "cells": cells, "colors": colors, "totalBeads": total_beads,
+            "paletteId": palette, "paletteSize": len(active_palette), "style": style,
+            "maxColors": max_colors}

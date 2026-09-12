@@ -186,3 +186,29 @@ def test_perler_rejects_non_png_payloads() -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_PERLER_IMAGE"
+
+
+def test_perler_quality_api_returns_mard_codes_and_zoomable_pngs() -> None:
+    image = np.zeros((28, 28, 4), dtype=np.uint8)
+    image[3:25, 8:20] = (34, 0, 211, 255)
+    _, buffer = cv2.imencode(".png", image)
+    response = client.post("/api/perler", json={
+        "image": "data:image/png;base64," + base64.b64encode(buffer).decode("ascii"),
+        "size": 48, "palette": "mard221", "style": "cartoon", "maxColors": 8,
+        "includePreviews": True,
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["paletteId"] == "mard221"
+    assert payload["paletteSize"] == 221
+    assert payload["colors"][0]["id"] == "F15"
+    for field in ("beadPreview", "chartPreview"):
+        data = base64.b64decode(payload[field].split(",", 1)[1], validate=True)
+        decoded = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+        assert decoded.shape[:2] == (48 * 24 + 56, 48 * 24 + 56)
+
+
+def test_perler_quality_api_validates_options_before_decoding() -> None:
+    for options in ({"palette": "unknown"}, {"style": "unknown"}, {"maxColors": 1}, {"maxColors": 65}):
+        response = client.post("/api/perler", json={"image": "data:image/png;base64,AAAA", **options})
+        assert response.status_code == 422
