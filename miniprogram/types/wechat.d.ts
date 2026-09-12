@@ -34,6 +34,14 @@ declare const wx: {
     success(result: { tempFilePath: string }): void;
     fail(error: unknown): void;
   }): void;
+  uploadFile(options: {
+    url: string;
+    filePath: string;
+    name: string;
+    formData: Record<string, string>;
+    success(result: { statusCode: number; data: string }): void;
+    fail(error: unknown): void;
+  }): unknown;
   createVKSession(options: {
     track: { plane: { mode: number }; hand: { mode: number } };
     version: string;
