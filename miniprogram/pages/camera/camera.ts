@@ -2,6 +2,7 @@ import { clipboardStore } from '../../clipboard/clipboard-store'
 import type { CaptureMode } from '../../clipboard/clipboard-types'
 import { APP_CONFIG } from '../../config'
 import { SpatialController } from '../../interaction/spatial-controller'
+import { shouldRenderSpatialFrame } from '../../interaction/spatial-render-scheduler'
 import {
   WeChatCameraFrameSource,
   type CameraFrame,
@@ -47,6 +48,7 @@ let acceptedFrameCount = 0
 let visionKitStarting = false
 let pageVisible = false
 let frameCapture: FrameCapture | undefined
+let lastSpatialRenderAt = 0
 
 Page({
   data: {
@@ -72,6 +74,7 @@ Page({
     pageVisible = true
     spatialController.reset()
     visionGestureAdapter.reset()
+    lastSpatialRenderAt = 0
     this.setData({
       cursorX: 0.5,
       cursorY: 0.56,
@@ -243,11 +246,21 @@ Page({
     const result = visionGestureAdapter.update(anchor)
     if (!result.hand.detected || this.data.isCopying) return
     const point = result.hand.cursor
-    this.setData({ cursorX: point.x, cursorY: point.y, handStatus: '已检测到手部' })
+    const forceRender = result.pinch === 'PINCH_START' || result.pinch === 'PINCH_END'
+    const now = Date.now()
+    const shouldRender = shouldRenderSpatialFrame(
+      lastSpatialRenderAt,
+      now,
+      1000 / APP_CONFIG.SPATIAL_UI_FPS,
+      forceRender,
+    )
+    if (shouldRender) lastSpatialRenderAt = now
 
     if (result.pinch === 'PINCH_START') {
       const next = spatialController.start(point)
       this.setData({
+        cursorX: point.x,
+        cursorY: point.y,
         objectX: point.x,
         objectY: point.y,
         gesture: next.gesture,
@@ -256,14 +269,27 @@ Page({
       })
     } else if (result.pinch === 'PINCH_HOLD' && spatialController.isDragging()) {
       const next = spatialController.move(point)
-      this.setData({
-        objectX: point.x,
-        objectY: point.y,
-        gesture: next.gesture,
-        status: '拖动中 · 松开即复制',
-      })
+      if (shouldRender) {
+        this.setData({
+          cursorX: point.x,
+          cursorY: point.y,
+          objectX: point.x,
+          objectY: point.y,
+          gesture: next.gesture,
+          handStatus: '已检测到手部',
+          status: '拖动中 · 张开手指即复制',
+        })
+      }
     } else if (result.pinch === 'PINCH_END' && spatialController.isDragging()) {
       this.finishGrab()
+    } else if (shouldRender) {
+      this.setData({
+        cursorX: point.x,
+        cursorY: point.y,
+        handStatus: '已检测到手部',
+        gesture: 'HOVERING',
+        status: '拇指与食指对捏并保持',
+      })
     }
   },
 
