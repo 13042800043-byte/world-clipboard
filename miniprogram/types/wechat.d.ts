@@ -21,7 +21,19 @@ declare const wx: {
       start(): void;
       stop(): void;
     };
+    takePhoto(options: {
+      quality: 'normal';
+      success(result: { tempImagePath: string }): void;
+      fail(error: unknown): void;
+    }): void;
   };
+  canvasToTempFilePath(options: {
+    canvas: unknown;
+    fileType: 'jpg';
+    quality: number;
+    success(result: { tempFilePath: string }): void;
+    fail(error: unknown): void;
+  }): void;
   createVKSession(options: {
     track: { plane: { mode: number }; hand: { mode: number } };
     version: string;
