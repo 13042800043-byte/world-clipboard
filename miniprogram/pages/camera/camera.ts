@@ -158,6 +158,10 @@ Page({
       .select('#visionkit-canvas')
       .node()
       .exec((result) => {
+        if (!pageVisible || this.data.useMockScene || !this.data.useVisionKit) {
+          visionKitStarting = false
+          return
+        }
         const canvas = result[0]?.node
         if (!canvas) {
           visionKitStarting = false
