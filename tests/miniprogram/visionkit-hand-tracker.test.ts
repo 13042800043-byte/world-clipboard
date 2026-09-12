@@ -49,11 +49,13 @@ describe('VisionKit hand anchor adapter', () => {
   it('emits stable pinch start, hold and end phases', () => {
     const adapter = new VisionKitHandGestureAdapter();
 
-    expect(adapter.update(createAnchor(0.48, 0.52)).pinch).toBeUndefined();
-    expect(adapter.update(createAnchor(0.48, 0.52)).pinch).toBe('PINCH_START');
-    expect(adapter.update(createAnchor(0.44, 0.56)).pinch).toBe('PINCH_HOLD');
-    expect(adapter.update(createAnchor(0.2, 0.5)).pinch).toBe('PINCH_HOLD');
-    expect(adapter.update(createAnchor(0.2, 0.5)).pinch).toBe('PINCH_END');
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 0).pinch).toBeUndefined();
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 40).pinch).toBeUndefined();
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 80).pinch).toBe('PINCH_START');
+    expect(adapter.update(createAnchor(0.44, 0.56), false, 120).pinch).toBe('PINCH_HOLD');
+    expect(adapter.update(createAnchor(0.2, 0.5), false, 160).pinch).toBe('PINCH_HOLD');
+    expect(adapter.update(createAnchor(0.2, 0.5), false, 200).pinch).toBe('PINCH_HOLD');
+    expect(adapter.update(createAnchor(0.2, 0.5), false, 240).pinch).toBe('PINCH_END');
   });
 
   it('normalizes pinch distance by palm width instead of the changing hand box', () => {
@@ -68,11 +70,61 @@ describe('VisionKit hand anchor adapter', () => {
 
   it('smooths cursor jumps between consecutive hand anchors', () => {
     const adapter = new VisionKitHandGestureAdapter();
-    const first = adapter.update(createAnchor(0.38, 0.42));
-    const second = adapter.update(createAnchor(0.58, 0.62));
+    const first = adapter.update(createAnchor(0.38, 0.42), false, 0);
+    const second = adapter.update(createAnchor(0.58, 0.62), false, 40);
 
-    expect(first.hand.cursor.x).toBeCloseTo(0.4);
-    expect(second.hand.cursor.x).toBeGreaterThan(0.4);
-    expect(second.hand.cursor.x).toBeLessThan(0.6);
+    expect(first.hand.cursor.x).toBeCloseTo(0.42);
+    expect(second.hand.cursor.x).toBeGreaterThan(0.42);
+    expect(second.hand.cursor.x).toBeLessThan(0.62);
+  });
+
+  it('uses the index tip for hover and locks the pre-pinch selection while dragging', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    const hover = adapter.update(createAnchor(0.2, 0.5), false, 0);
+    expect(hover.rawCursor?.x).toBe(0.5);
+    adapter.update(createAnchor(0.2, 0.5), false, 40);
+    adapter.update(createAnchor(0.45, 0.49), false, 80);
+    adapter.update(createAnchor(0.45, 0.49), false, 120);
+    const grabbed = adapter.update(createAnchor(0.45, 0.49), false, 160);
+    expect(grabbed.pinch).toBe('PINCH_START');
+    expect(grabbed.selectionPoint?.x).toBeCloseTo(0.5);
+    const dragged = adapter.update(createAnchor(0.65, 0.69), false, 200);
+    expect(dragged.selectionPoint).toEqual(grabbed.selectionPoint);
+    expect(dragged.hand.cursor.x).toBeGreaterThan(grabbed.hand.cursor.x);
+  });
+
+  it('freezes during brief loss, cancels after grace, and requires open fingers before re-grab', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    const closed = createAnchor(0.48, 0.52);
+    adapter.update(closed, false, 0);
+    adapter.update(closed, false, 40);
+    adapter.update(closed, false, 80);
+    const grace = adapter.update(undefined, false, 120);
+    expect(grace.tracking).toBe('grace');
+    expect(grace.pinch).toBeUndefined();
+    expect(adapter.update(closed, false, 160).pinch).toBe('PINCH_HOLD');
+    const lost = adapter.update(undefined, false, 320);
+    expect(lost.tracking).toBe('lost');
+    expect(lost.pinch).toBeUndefined();
+    expect(adapter.update(closed, false, 360).phase).toBe('REARMING');
+    for (const now of [400, 440, 480]) adapter.update(createAnchor(0.2, 0.5), false, now);
+    for (const now of [520, 560]) expect(adapter.update(closed, false, now).pinch).toBeUndefined();
+    expect(adapter.update(closed, false, 600).pinch).toBe('PINCH_START');
+  });
+
+  it('rejects invalid coordinates and corrects the distance metric for tall viewports', () => {
+    const bad = createAnchor(0.4, 0.5); bad.points[8].x = NaN;
+    expect(mapVisionKitAnchor(bad).detected).toBe(false);
+    const vertical = createAnchor(0.5, 0.5); vertical.points[8].y = 0.6;
+    expect(mapVisionKitAnchor(vertical, false, 0.5).pinchDistance).toBeCloseTo(0.5);
+  });
+
+  it('does not confirm a pinch from duplicate observations', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    for (let duplicate = 0; duplicate < 5; duplicate++) {
+      expect(adapter.update(createAnchor(0.48, 0.52), false, 0).pinch).toBeUndefined();
+    }
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 40).pinch).toBeUndefined();
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 80).pinch).toBe('PINCH_START');
   });
 });

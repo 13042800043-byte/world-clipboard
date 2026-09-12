@@ -9,9 +9,12 @@ import type { NormalizedPoint } from '../vision/hand-tracker';
 export class SpatialController {
   private state: InteractionState = createInteractionState();
   private cursor: NormalizedPoint = { x: 0.5, y: 0.56 };
+  private selectionPoint: NormalizedPoint = { x: 0.5, y: 0.56 };
 
-  start(point: NormalizedPoint): InteractionState {
-    this.cursor = point;
+  start(point: NormalizedPoint, selectionPoint = point): InteractionState {
+    if (this.isDragging()) return this.state;
+    this.cursor = { ...point };
+    this.selectionPoint = { ...selectionPoint };
     this.state = transitionInteraction(this.state, { type: 'HAND_FOUND' });
     this.state = transitionInteraction(this.state, { type: 'TARGET_ENTER' });
     this.state = transitionInteraction(this.state, { type: 'PINCH_START' });
@@ -19,7 +22,7 @@ export class SpatialController {
   }
 
   move(point: NormalizedPoint): InteractionState {
-    this.cursor = point;
+    this.cursor = { ...point };
     this.state = transitionInteraction(this.state, { type: 'CURSOR_MOVE' });
     return this.state;
   }
@@ -35,7 +38,11 @@ export class SpatialController {
   }
 
   getCursor(): NormalizedPoint {
-    return this.cursor;
+    return { ...this.cursor };
+  }
+
+  getSelectionPoint(): NormalizedPoint {
+    return { ...this.selectionPoint };
   }
 
   isDragging(): boolean {
