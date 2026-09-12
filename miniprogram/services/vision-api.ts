@@ -9,6 +9,8 @@ export type SegmentApiSuccess = {
   mask: string;
   bbox: { x: number; y: number; width: number; height: number };
   outline?: string;
+  /** Largest outer ring, normalized to the original photo, not the cropped PNG. */
+  contour?: Array<[number, number]>;
   debug?: Record<string, unknown>;
 };
 
@@ -41,10 +43,18 @@ export function parseSegmentResponse(value: unknown): SegmentApiSuccess {
     || !isPngData(response.mask)
     || !isNormalizedBox(response.bbox)
     || (response.outline !== undefined && !isPngData(response.outline))
+    || (response.contour !== undefined && !isNormalizedContour(response.contour))
     || (response.debug !== undefined && (!response.debug || typeof response.debug !== 'object' || Array.isArray(response.debug)))
   ) {
     throw new Error('invalid segmentation response');
   }
 
   return response as SegmentApiSuccess;
+}
+
+function isNormalizedContour(value: unknown): value is Array<[number, number]> {
+  return Array.isArray(value) && value.length >= 3 && value.length <= 1024
+    && value.every(point => Array.isArray(point) && point.length === 2
+      && point.every(coordinate => typeof coordinate === 'number'
+        && Number.isFinite(coordinate) && coordinate >= 0 && coordinate <= 1));
 }

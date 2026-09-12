@@ -12,6 +12,29 @@ from app.main import ApiError, _ensure_safe_image_dimensions, app
 client = TestClient(app)
 
 
+def test_contour_mode_returns_silhouette_instead_of_colored_cutout() -> None:
+    frame = np.full((100, 140, 3), (30, 160, 30), np.uint8)
+    frame[25:75, 40:100] = (20, 20, 230)
+    _, encoded = cv2.imencode('.png', frame)
+    previews = {}
+    for mode in ('object', 'contour'):
+        response = client.post('/api/segment',
+            files={'image': ('frame.png', encoded.tobytes(), 'image/png')},
+            data={'pointX': '.5', 'pointY': '.5', 'mode': mode})
+        assert response.status_code == 200
+        payload = response.json()
+        previews[mode] = cv2.imdecode(np.frombuffer(
+            base64.b64decode(payload['preview'].split(',')[1]), np.uint8), cv2.IMREAD_UNCHANGED)
+        if mode == 'contour':
+            assert 3 <= len(payload['contour']) <= 1024
+            assert all(0 <= v <= 1 for p in payload['contour'] for v in p)
+        else:
+            assert 'contour' not in payload
+    assert np.array_equal(previews['object'][:, :, 3], previews['contour'][:, :, 3])
+    assert np.all(previews['object'][:, :, :3] == (20, 20, 230))
+    assert np.all(previews['contour'][:, :, :3] == 17)
+
+
 def test_selection_returns_a_real_outline_and_validates_final_prompt() -> None:
     frame = np.full((100, 140, 3), (30, 160, 30), np.uint8)
     frame[25:75, 40:100] = (20, 20, 230)

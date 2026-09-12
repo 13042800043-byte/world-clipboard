@@ -8,6 +8,40 @@ const input = {
 };
 
 describe('remote segmentation adapter', () => {
+  const contourResponse = {
+    success: true, mode: 'contour',
+    preview: 'data:image/png;base64,silhouette', mask: 'data:image/png;base64,mask',
+    bbox: { x: .3, y: .2, width: .4, height: .5 },
+    contour: [[.3, .2], [.7, .2], [.7, .7], [.3, .7]],
+  };
+  const contourAdapter = (payload: unknown) => new RemoteSegmentationAdapter('http://server:8000', options => {
+    options.success({ statusCode: 200, data: JSON.stringify(payload) });
+  });
+
+  it('preserves real contour geometry and silhouette preview on ClipboardItem', async () => {
+    const item = await contourAdapter(contourResponse).segment({ ...input, mode: 'contour' });
+    expect(item.type).toBe('contour');
+    expect(item.contour).toEqual(contourResponse.contour);
+    expect(item.previewImage).toBe(contourResponse.preview);
+  });
+
+  it('rejects an old contour backend instead of silently displaying a colored cutout', async () => {
+    const { contour: _polygon, ...oldResponse } = contourResponse;
+    await expect(contourAdapter(oldResponse).segment({ ...input, mode: 'contour' }))
+      .rejects.toThrow('请更新后端');
+  });
+
+  it.each([[], [[0, 0], [1, 0]], [[0, 0], [1, 0], [2, 1]],
+    [[0, 0], [1, 0], [NaN, 1]], Array.from({ length: 1025 }, () => [0, 0])].map(contour => ({ contour })))
+    ('rejects invalid or oversized contour geometry %#', async ({ contour }) => {
+      await expect(contourAdapter({ ...contourResponse, contour }).segment({ ...input, mode: 'contour' }))
+        .rejects.toThrow('invalid segmentation response');
+    });
+
+  it('rejects a response for another capture mode', async () => {
+    await expect(contourAdapter(contourResponse).segment(input)).rejects.toThrow('mode mismatch');
+  });
+
   it('serializes point, box and hand negatives and preserves retry error codes', async () => {
     const uploadFile = vi.fn(options => options.success({ statusCode: 422,
       data: JSON.stringify({ error: { code: 'BLURRY_CAPTURE', message: 'hold still' } }) }));

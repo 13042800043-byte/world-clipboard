@@ -58,6 +58,10 @@ export class RemoteSegmentationAdapter implements Segmenter {
 
   async segment(input: SegmentationInput): Promise<ClipboardItem> {
     const response = await this.request(input, 'final');
+    if (response.mode !== input.mode) throw new Error('segmentation response mode mismatch');
+    if (input.mode === 'contour' && !response.contour) {
+      throw new Error('轮廓服务版本过旧，请更新后端后重新抓取');
+    }
     if (input.debug && response.debug) console.info('Final cutout diagnostics', response.debug);
     return {
       id: `remote-${response.mode}-${Date.now()}`,
@@ -67,6 +71,7 @@ export class RemoteSegmentationAdapter implements Segmenter {
       previewImage: response.preview,
       maskImage: response.mask,
       bbox: response.bbox,
+      ...(response.mode === 'contour' ? { contour: response.contour } : {}),
       spatial: { x: input.point.x, y: input.point.y, scale: 1, rotation: 0 },
     };
   }

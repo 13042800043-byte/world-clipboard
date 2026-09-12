@@ -16,6 +16,7 @@ from app.perler import generate_perler
 from app.perler_preview import render_perler_preview
 from app.segmentation import resize_for_segmentation, segment_foreground
 from app.final_cutout import final_cutout
+from app.contour import contour_preview
 from app.paste_plugins.sticker import generate_sticker
 from app.paste_plugins.pixel_art import generate_pixel_art
 from app.paste_plugins.lego import generate_lego
@@ -192,6 +193,10 @@ def _process_segment(contents: bytes, point: tuple[float, float], mode: str, sta
         else:
             result = final_cutout(frame, point, box=prompt.box.model_dump() if prompt.box else None,
                                   negative_points=[(p.x, p.y) for p in prompt.negativePoints])
+        preview = result.cutout
+        polygon = None
+        if mode == 'contour' and stage == 'final':
+            preview, polygon = contour_preview(result.cutout, result.mask)
     except (ValueError, cv2.error) as error:
         if 'BLURRY_CAPTURE' in str(error):
             raise ApiError(422, 'BLURRY_CAPTURE', '画面模糊，请保持手机与物体稳定') from error
@@ -200,10 +205,12 @@ def _process_segment(contents: bytes, point: tuple[float, float], mode: str, sta
     payload = {
         "success": True,
         "mode": mode,
-        "preview": _png_data_url(result.cutout),
+        "preview": _png_data_url(preview),
         "mask": _png_data_url(result.mask),
         "bbox": result.bbox,
     }
+    if polygon is not None:
+        payload['contour'] = polygon
     if stage == 'selection':
         outline = np.zeros((*result.mask.shape, 4), np.uint8)
         contours, _ = cv2.findContours(result.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
