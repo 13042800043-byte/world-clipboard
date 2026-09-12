@@ -57,3 +57,11 @@ it('returns to the gallery and switches plugin via explicit events', () => {
   expect(component.triggerEvent).toHaveBeenCalledWith('close')
   expect(component.triggerEvent).toHaveBeenCalledWith('select', { id: 'lego' })
 })
+it('does not overwrite the file being saved via a parameter or plugin change', async () => {
+  component.setData({ saving: true })
+  await component.onOption({ currentTarget: { dataset: { setting: 'size', value: 64 } } })
+  component.onClose()
+  component.onPlugin({ currentTarget: { dataset: { kind: 'lego' } } })
+  expect(mocks.generate).toHaveBeenCalledTimes(1)
+  expect(component.triggerEvent).not.toHaveBeenCalled()
+})

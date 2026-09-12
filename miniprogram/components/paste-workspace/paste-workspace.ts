@@ -59,7 +59,7 @@ Component({
       }
     },
     async onOption(event) {
-      if (this.data.status === 'loading') return
+      if (this.data.status === 'loading' || this.data.saving) return
       const { setting, value } = event.currentTarget.dataset
       const options = { ...this.data.options }
       const allowed = setting === 'size' ? [32, 48, 64] : setting === 'maxColors' ? [8, 16, 24] : setting === 'border' ? [0, 8, 16] : []
@@ -92,7 +92,7 @@ Component({
         if (this._alive) this.setData({ saving: false })
       }
     },
-    onClose() { this.triggerEvent('close') },
+    onClose() { if (!this.data.saving) this.triggerEvent('close') },
     onPlugin(event) {
       const kind = event.currentTarget.dataset.kind
       if (isTemplateKind(kind) && kind !== this.data.kind && !this.data.saving) this.triggerEvent('select', { id: kind })
