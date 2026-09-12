@@ -65,7 +65,7 @@
   <view class="topbar">
     <view>
       <view class="brand">世界粘贴板</view>
-      <view class="brand-subtitle">World Clipboard</view>
+      <view class="brand-subtitle">{{useMockScene ? 'World Clipboard · Mock' : frameStatus}}</view>
     </view>
     <button class="debug-chip" catchtap="onToggleScene">
       {{useMockScene ? 'MOCK' : 'CAMERA'}}

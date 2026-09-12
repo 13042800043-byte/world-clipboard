@@ -8,6 +8,12 @@ declare const wx: {
   showToast(options: { title: string; icon?: 'success' | 'error' | 'loading' | 'none'; duration?: number }): void;
   pageScrollTo(options: { selector?: string; scrollTop?: number; duration?: number }): void;
   getWindowInfo(): { windowWidth: number; windowHeight: number; statusBarHeight?: number };
+  createCameraContext(): {
+    onCameraFrame(callback: (frame: { data: ArrayBuffer; width: number; height: number }) => void): {
+      start(): void;
+      stop(): void;
+    };
+  };
 };
 
 interface MiniProgramTouch {

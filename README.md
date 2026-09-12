@@ -27,7 +27,7 @@ Camera 页右上角的 `MOCK / CAMERA` 可以切换演示背景。开发者工�
 ## 当前完成
 
 - 原生 TypeScript / WXML / WXSS 工程与自定义双页面导航
-- 全屏后置 Camera 组件与 Debug Mock Scene
+- 全屏后置 Camera、节流后的实时 Camera Frame Listener 与 Debug Mock Scene
 - 物体、颜色、轮廓三种捕捉模式
 - Spatial Cursor 与独立 Gesture State Machine
 - Touch / Mouse 模拟 Pinch、Grab、Drag、Release
@@ -95,3 +95,5 @@ miniprogram/
 架构与交互研究参考了 AR Cut & Paste、pARallax、KineMouse、Google MediaPipe samples 和 Perler Beads Generator；当前代码为独立实现，归属与链接见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 
 微信工程结构与 TypeScript 配置同时对照了微信官方的 [miniprogram-demo](https://github.com/wechat-miniprogram/miniprogram-demo) 与 [API typings](https://github.com/wechat-miniprogram/api-typings)；触摸手势边界参考官方 [miniprogram-gesture](https://github.com/wechat-miniprogram/miniprogram-gesture) 示例。
+
+实时帧接入沿用官方 Camera 示例中的 [`createCameraContext` / `onCameraFrame`](https://github.com/wechat-miniprogram/miniprogram-demo/pull/32/files) 生命周期，并在进入后台或离开页面时停止监听。
