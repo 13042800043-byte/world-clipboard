@@ -60,9 +60,9 @@ describe('P0 intent and gesture stability', () => {
     controller.getSelectionPoint().x = 0
     expect(controller.getSelectionPoint().x).toBe(0.3)
   })
-  it('debounces three valid frames and ignores invalid distance rather than releasing', () => {
+  it('debounces two valid frames and ignores invalid distance rather than releasing', () => {
     let tracker = createPinchTracker()
-    for (let frame = 0; frame < 2; frame++) {
+    for (let frame = 0; frame < 1; frame++) {
       const result = updatePinchTracker(tracker, 0.2)
       expect(result.event).toBeUndefined(); tracker = result.tracker
     }

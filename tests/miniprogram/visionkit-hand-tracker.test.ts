@@ -50,12 +50,11 @@ describe('VisionKit hand anchor adapter', () => {
     const adapter = new VisionKitHandGestureAdapter();
 
     expect(adapter.update(createAnchor(0.48, 0.52), false, 0).pinch).toBeUndefined();
-    expect(adapter.update(createAnchor(0.48, 0.52), false, 40).pinch).toBeUndefined();
-    expect(adapter.update(createAnchor(0.48, 0.52), false, 80).pinch).toBe('PINCH_START');
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 40).pinch).toBe('PINCH_START');
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 80).pinch).toBe('PINCH_HOLD');
     expect(adapter.update(createAnchor(0.44, 0.56), false, 120).pinch).toBe('PINCH_HOLD');
     expect(adapter.update(createAnchor(0.2, 0.5), false, 160).pinch).toBe('PINCH_HOLD');
-    expect(adapter.update(createAnchor(0.2, 0.5), false, 200).pinch).toBe('PINCH_HOLD');
-    expect(adapter.update(createAnchor(0.2, 0.5), false, 240).pinch).toBe('PINCH_END');
+    expect(adapter.update(createAnchor(0.2, 0.5), false, 200).pinch).toBe('PINCH_END');
   });
 
   it('normalizes pinch distance by palm width instead of the changing hand box', () => {
@@ -84,8 +83,7 @@ describe('VisionKit hand anchor adapter', () => {
     expect(hover.rawCursor?.x).toBe(0.5);
     adapter.update(createAnchor(0.2, 0.5), false, 40);
     adapter.update(createAnchor(0.45, 0.49), false, 80);
-    adapter.update(createAnchor(0.45, 0.49), false, 120);
-    const grabbed = adapter.update(createAnchor(0.45, 0.49), false, 160);
+    const grabbed = adapter.update(createAnchor(0.45, 0.49), false, 120);
     expect(grabbed.pinch).toBe('PINCH_START');
     expect(grabbed.selectionPoint?.x).toBeCloseTo(0.5);
     const dragged = adapter.update(createAnchor(0.65, 0.69), false, 200);
@@ -103,12 +101,12 @@ describe('VisionKit hand anchor adapter', () => {
     expect(grace.tracking).toBe('grace');
     expect(grace.pinch).toBeUndefined();
     expect(adapter.update(closed, false, 160).pinch).toBe('PINCH_HOLD');
-    const lost = adapter.update(undefined, false, 320);
+    const lost = adapter.update(undefined, false, 400);
     expect(lost.tracking).toBe('lost');
     expect(lost.pinch).toBeUndefined();
-    expect(adapter.update(closed, false, 360).phase).toBe('REARMING');
-    for (const now of [400, 440, 480]) adapter.update(createAnchor(0.2, 0.5), false, now);
-    for (const now of [520, 560]) expect(adapter.update(closed, false, now).pinch).toBeUndefined();
+    expect(adapter.update(closed, false, 440).phase).toBe('REARMING');
+    for (const now of [480, 520]) adapter.update(createAnchor(0.2, 0.5), false, now);
+    expect(adapter.update(closed, false, 560).pinch).toBeUndefined();
     expect(adapter.update(closed, false, 600).pinch).toBe('PINCH_START');
   });
 
@@ -124,7 +122,6 @@ describe('VisionKit hand anchor adapter', () => {
     for (let duplicate = 0; duplicate < 5; duplicate++) {
       expect(adapter.update(createAnchor(0.48, 0.52), false, 0).pinch).toBeUndefined();
     }
-    expect(adapter.update(createAnchor(0.48, 0.52), false, 40).pinch).toBeUndefined();
-    expect(adapter.update(createAnchor(0.48, 0.52), false, 80).pinch).toBe('PINCH_START');
+    expect(adapter.update(createAnchor(0.48, 0.52), false, 40).pinch).toBe('PINCH_START');
   });
 });
