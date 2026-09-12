@@ -1,0 +1,1 @@
+"""World Clipboard vision backend."""
