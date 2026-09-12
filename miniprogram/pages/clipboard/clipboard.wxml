@@ -1,14 +1,14 @@
-<view class="clipboard-page">
-  <view class="nav">
-    <button class="back" bindtap="onBack" aria-label="返回现实捕捉页">‹</button>
+<view class="clipboard-page" style="padding-bottom: {{bottomInset + 40}}px;">
+  <view class="nav" style="padding-top: {{navTop}}px; height: {{navHeight}}px; padding-right: {{navRightInset}}px;">
+    <button size="mini" class="back" bindtap="onBack" aria-label="返回现实捕捉页">‹</button>
     <view class="nav__title">
       <text>世界粘贴板</text>
       <text class="nav__subtitle">World Clipboard</text>
     </view>
-    <view class="nav__type">{{typeLabel}}</view>
   </view>
 
   <view class="hero">
+    <view class="nav__type">{{typeLabel}}</view>
     <view class="hero__glow"></view>
     <object-preview
       type="{{item.type}}"

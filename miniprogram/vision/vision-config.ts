@@ -9,5 +9,5 @@ export const VISION_CONFIG = {
   cursorFilter: { minCutoff: 1.5, beta: 8, derivativeCutoff: 1 },
   useOneEuroFilter: true,
   useSelectionLock: true,
-  showCoordinateDebug: true,
+  showCoordinateDebug: false,
 } as const

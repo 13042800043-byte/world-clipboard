@@ -1,5 +1,6 @@
 <view class="selector" aria-label="捕捉模式">
   <button
+    size="mini"
     wx:for="{{modes}}"
     wx:key="id"
     class="mode {{active === item.id ? 'mode--active' : ''}}"

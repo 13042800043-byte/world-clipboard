@@ -1,6 +1,7 @@
 import { clipboardStore } from '../../clipboard/clipboard-store'
 import type { CaptureMode } from '../../clipboard/clipboard-types'
 import { APP_CONFIG } from '../../config'
+import { getDeviceLayout } from '../../utils/device-layout'
 import { SpatialController } from '../../interaction/spatial-controller'
 import { shouldRenderSpatialFrame } from '../../interaction/spatial-render-scheduler'
 import {
@@ -76,6 +77,11 @@ Page({
   data: {
     mode: 'object' as CaptureMode,
     debugMode: APP_CONFIG.DEBUG_MODE,
+    showDebugControls: APP_CONFIG.SHOW_DEBUG_CONTROLS,
+    navTop: 24,
+    navHeight: 68,
+    navRightInset: 106,
+    bottomInset: 0,
     coordinateDebug: APP_CONFIG.DEBUG_MODE && VISION_CONFIG.showCoordinateDebug,
     rawCursorX: 0.5,
     rawCursorY: 0.56,
@@ -107,6 +113,8 @@ Page({
   },
 
   onShow() {
+    this.setData(getDeviceLayout())
+    wx.setNavigationBarColor?.({ frontColor: '#ffffff', backgroundColor: '#17191a' })
     this.cancelInteraction()
     pageVisible = true
     lastSpatialRenderAt = 0

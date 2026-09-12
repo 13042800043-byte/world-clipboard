@@ -1,4 +1,5 @@
 <button
+  size="mini"
   class="card {{template.active ? 'card--active' : ''}} {{template.disabled ? 'card--disabled' : ''}}"
   bindtap="onTap"
   disabled="{{template.disabled}}"

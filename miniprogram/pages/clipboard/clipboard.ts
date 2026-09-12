@@ -1,6 +1,7 @@
 import { clipboardStore } from '../../clipboard/clipboard-store'
 import type { ClipboardItem } from '../../clipboard/clipboard-types'
 import { APP_CONFIG } from '../../config'
+import { getDeviceLayout } from '../../utils/device-layout'
 import { RemotePerlerGenerator } from '../../plugins/perler/perler-generator'
 
 const perlerGenerator = new RemotePerlerGenerator(APP_CONFIG.VISION_API_BASE_URL)
@@ -15,6 +16,10 @@ const templates = [
 
 Page({
   data: {
+    navTop: 24,
+    navHeight: 68,
+    navRightInset: 106,
+    bottomInset: 0,
     item: createFallbackItem(),
     typeLabel: '物体',
     colorHex: '#6E747A',
@@ -33,6 +38,8 @@ Page({
   },
 
   onShow() {
+    this.setData(getDeviceLayout())
+    wx.setNavigationBarColor?.({ frontColor: '#000000', backgroundColor: '#f6f7f9' })
     const item = clipboardStore.get() || createFallbackItem()
     const color = item.color || { hex: '#6E747A', rgb: [110, 116, 122] as [number, number, number] }
     this.setData({

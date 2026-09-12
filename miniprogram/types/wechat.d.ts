@@ -17,7 +17,9 @@ declare const wx: {
   navigateBack(options?: { delta?: number }): void;
   showToast(options: { title: string; icon?: 'success' | 'error' | 'loading' | 'none'; duration?: number }): void;
   pageScrollTo(options: { selector?: string; scrollTop?: number; duration?: number }): void;
-  getWindowInfo(): { windowWidth: number; windowHeight: number; pixelRatio?: number; statusBarHeight?: number };
+  getWindowInfo(): { windowWidth: number; windowHeight: number; pixelRatio?: number; statusBarHeight?: number; screenHeight?: number; safeArea?: { bottom: number } };
+  getMenuButtonBoundingClientRect?(): { width: number; height: number; top: number; bottom: number; left: number; right: number };
+  setNavigationBarColor?(options: { frontColor: '#ffffff' | '#000000'; backgroundColor: string }): void;
   getImageInfo(options: { src: string; success(result: { width: number; height: number; orientation?: string }): void; fail(error: unknown): void }): void;
   nextTick(callback: () => void): void;
   createSelectorQuery(): {

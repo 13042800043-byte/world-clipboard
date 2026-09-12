@@ -60,7 +60,7 @@
   <view wx:if="{{coordinateDebug}}" class="coordinate-debug">
     <view class="coordinate-debug__raw" style="left: {{rawCursorX * 100}}%; top: {{rawCursorY * 100}}%;"></view>
     <view wx:if="{{isGrabbed || isCopying}}" class="coordinate-debug__lock" style="left: {{selectionX * 100}}%; top: {{selectionY * 100}}%;">+</view>
-    <view class="coordinate-debug__panel">
+    <view class="coordinate-debug__panel" style="top: {{navHeight + 12}}px;">
       <text>RAW 橙圈 · FILTER 白点 · LOCK 十字</text>
       <text>{{debugGesture}}</text>
       <text>{{debugPoint}}</text>
@@ -72,22 +72,22 @@
   </view>
 
   <view class="instruction {{isGrabbed ? 'instruction--active' : ''}}">
-    <text class="instruction__state">{{gesture}}</text>
+    <text wx:if="{{showDebugControls}}" class="instruction__state">{{gesture}}</text>
     <text>{{finalCapturing ? '已锁定目标 · 稳住手机，获取高清画面' : status}}</text>
   </view>
   </view>
 
-  <view class="topbar">
+  <view class="topbar" style="padding-top: {{navTop}}px; height: {{navHeight}}px; padding-right: {{navRightInset}}px;">
     <view>
       <view class="brand">世界粘贴板</view>
-      <view class="brand-subtitle">{{useMockScene ? 'World Clipboard · Mock' : handStatus}}</view>
+      <view class="brand-subtitle">{{showDebugControls ? handStatus : 'World Clipboard'}}</view>
     </view>
-    <button class="debug-chip" catchtap="onToggleScene">
+    <button wx:if="{{showDebugControls}}" size="mini" class="debug-chip" catchtap="onToggleScene">
       {{useMockScene ? 'MOCK' : 'CAMERA'}}
     </button>
   </view>
 
-  <view class="bottom-controls">
+  <view class="bottom-controls" style="bottom: {{bottomInset + 22}}px;">
     <capture-mode-selector active="{{mode}}" bindchange="onModeChange" />
     <text class="bottom-hint">{{useVisionKit ? '拇指 + 食指对捏 · 保持 · 移动 · 张开' : '按住 · 移动 · 松开'}}</text>
   </view>

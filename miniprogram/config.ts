@@ -1,5 +1,6 @@
 export const APP_CONFIG = {
   DEBUG_MODE: true,
+  SHOW_DEBUG_CONTROLS: false,
   USE_MOCK_HAND_TRACKING: false,
   USE_MOCK_SEGMENTATION: false,
   VISION_API_BASE_URL: 'http://192.168.67.18:8000',

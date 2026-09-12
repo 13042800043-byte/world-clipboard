@@ -1,4 +1,5 @@
 .selector {
+  box-sizing: border-box;
   display: flex;
   width: 590rpx;
   padding: 10rpx;
@@ -11,6 +12,8 @@
 }
 
 .mode {
+  box-sizing: border-box;
+  min-width: 0;
   display: flex;
   flex: 1;
   align-items: center;

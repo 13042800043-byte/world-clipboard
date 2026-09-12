@@ -3,18 +3,19 @@ page { background: #f6f7f9; }
 .clipboard-page { min-height: 100vh; padding-bottom: calc(env(safe-area-inset-bottom) + 80rpx); color: #151719; background: #f6f7f9; }
 
 .nav {
+  box-sizing: border-box;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + 24rpx) 30rpx 22rpx;
+  padding: 0 30rpx;
 }
 
-.back { display: flex; align-items: center; justify-content: center; width: 64rpx; height: 64rpx; margin: 0; padding: 0 3rpx 4rpx 0; border: 1rpx solid #e0e3e5; border-radius: 50%; color: #1e2022; font-size: 52rpx; font-weight: 300; line-height: 58rpx; background: rgba(255, 255, 255, 0.84); }
+.back { box-sizing: border-box; display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 36px; min-width: 0; height: 36px; margin: 0; padding: 0 2px 3px 0; border: 1rpx solid #e0e3e5; border-radius: 50%; color: #1e2022; font-size: 30px; font-weight: 300; line-height: 34px; background: rgba(255, 255, 255, 0.84); }
 .back::after { border: 0; }
-.nav__title { position: absolute; left: 50%; display: flex; flex-direction: column; align-items: center; font-size: 25rpx; font-weight: 700; transform: translateX(-50%); }
+.nav__title { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: flex-start; margin-left: 18rpx; font-size: 25rpx; font-weight: 700; white-space: nowrap; }
 .nav__subtitle { color: #8a8d90; font-size: 15rpx; font-weight: 500; }
-.nav__type { min-width: 64rpx; padding: 10rpx 18rpx; border-radius: 22rpx; color: #6f7376; font-size: 19rpx; text-align: center; background: #e9ebed; }
+.nav__type { position: absolute; z-index: 2; top: 18rpx; right: 30rpx; min-width: 64rpx; padding: 10rpx 18rpx; border-radius: 22rpx; color: #6f7376; font-size: 19rpx; text-align: center; background: #e9ebed; }
 
 .hero { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 560rpx; overflow: hidden; }
 .hero__glow { position: absolute; top: 10rpx; left: 50%; width: 470rpx; height: 470rpx; border-radius: 50%; background: rgba(255, 255, 255, 0.92); filter: blur(14rpx); transform: translateX(-50%); }
@@ -35,7 +36,7 @@ page { background: #f6f7f9; }
 .section-index { color: #b2b5b8; font-size: 20rpx; font-weight: 700; }
 
 .template-grid { display: flex; flex-wrap: wrap; margin: -7rpx; }
-.template-cell { box-sizing: border-box; padding: 7rpx; }
+.template-cell { box-sizing: border-box; min-width: 0; padding: 7rpx; }
 .template-cell--third { width: 33.333%; }
 .template-cell--half { width: 50%; }
 
