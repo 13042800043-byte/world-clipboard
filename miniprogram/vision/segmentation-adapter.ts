@@ -1,10 +1,13 @@
 import type { CaptureMode, ClipboardItem } from '../clipboard/clipboard-types';
 import type { NormalizedPoint } from './hand-tracker';
+import type { PromptBox } from './final-capture-controller';
 
 export type SegmentationInput = {
   image: string;
   point: NormalizedPoint;
   mode: CaptureMode;
+  prompt?: { positivePoints: NormalizedPoint[]; negativePoints: NormalizedPoint[]; box?: PromptBox };
+  debug?: boolean;
 };
 
 export interface Segmenter {

@@ -74,4 +74,23 @@ describe('camera frame capture adapters', () => {
 
     await expect(capture.capture()).rejects.toThrow('camera unavailable');
   });
+
+  it('requests a real high quality photo for final RGB', async () => {
+    const takePhoto = vi.fn(options => options.success({ tempImagePath: 'high.jpg' }));
+    await expect(new CameraPhotoCapture({ takePhoto }, 'high').capture()).resolves.toBe('high.jpg');
+    expect(takePhoto).toHaveBeenCalledWith(expect.objectContaining({ quality: 'high' }));
+  });
+
+  it('bounds missing platform callbacks and ignores a late success', async () => {
+    vi.useFakeTimers();
+    let late!: (result: { tempImagePath: string }) => void;
+    try {
+      const capture = new CameraPhotoCapture({ takePhoto: options => { late = options.success; } }, 'high');
+      const pending = capture.capture();
+      const assertion = expect(pending).rejects.toThrow('takePhoto 超时');
+      await vi.advanceTimersByTimeAsync(5001);
+      await assertion;
+      late({ tempImagePath: 'stale.jpg' });
+    } finally { vi.useRealTimers(); }
+  });
 });

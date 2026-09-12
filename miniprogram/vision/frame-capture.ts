@@ -39,7 +39,7 @@ function writeCaptureImage(dataUrl: string): Promise<string> {
 
 type CameraContext = {
   takePhoto(options: {
-    quality: 'normal';
+    quality: 'normal' | 'high';
     success(result: { tempImagePath: string }): void;
     fail(error: unknown): void;
   }): void;
@@ -61,15 +61,21 @@ export class VisionKitCanvasCapture implements FrameCapture {
 }
 
 export class CameraPhotoCapture implements FrameCapture {
-  constructor(private readonly context: CameraContext = wx.createCameraContext()) {}
+  constructor(private readonly context: CameraContext = wx.createCameraContext(), private readonly quality: 'normal' | 'high' = 'normal') {}
 
   capture(): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.context.takePhoto({
-        quality: 'normal',
-        success: ({ tempImagePath }) => resolve(tempImagePath),
-        fail: (error) => reject(platformError(error)),
-      });
+      let settled = false;
+      const timeout = setTimeout(() => finish(() => reject(new Error('takePhoto 超时，请检查相机权限并重试'))), 5000);
+      const finish = (callback: () => void) => {
+        if (settled) return;
+        settled = true; clearTimeout(timeout); callback();
+      };
+      try { this.context.takePhoto({
+        quality: this.quality,
+        success: ({ tempImagePath }) => finish(() => resolve(tempImagePath)),
+        fail: (error) => finish(() => reject(platformError(error))),
+      }); } catch (error) { finish(() => reject(platformError(error))); }
     });
   }
 }

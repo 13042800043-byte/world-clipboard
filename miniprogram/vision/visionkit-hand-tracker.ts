@@ -164,6 +164,15 @@ export class VisionKitHandGestureAdapter {
     return { hand, tracking, phase, selectionPoint: this.selectionPoint && { ...this.selectionPoint }, closedFrames: this.pinchTracker.closedFrames, openFrames: this.pinchTracker.openFrames };
   }
 
+  // Only the camera ownership controller may call this after an intentional
+  // photo pause. Ordinary missing observations still use the 150ms loss guard.
+  resumeAfterCapture(now = Date.now()): void {
+    if (this.lastSeenAt !== undefined) this.lastSeenAt = now;
+    this.filterX.reset();
+    this.filterY.reset();
+    this.pinchTracker = { ...this.pinchTracker, closedFrames: 0, openFrames: 0 };
+  }
+
   reset(): void {
     this.pinchTracker = createPinchTracker();
     this.filterX.reset();

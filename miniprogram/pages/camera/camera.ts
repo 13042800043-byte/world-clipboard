@@ -16,6 +16,11 @@ import { MockHandTracker } from '../../vision/hand-tracker'
 import type { NormalizedPoint } from '../../vision/hand-tracker'
 import { CoordinateTransform, orientedDimensions } from '../../vision/coordinate-transform'
 import { VISION_CONFIG } from '../../vision/vision-config'
+import { CUTOUT_CONFIG } from '../../vision/cutout-config'
+import { FinalCaptureController, type FinalCaptureInput, type FinalPhoto } from '../../vision/final-capture-controller'
+import { FinalSegmentationController } from '../../vision/final-segmentation-controller'
+import { buildHandNegativePrompt } from '../../vision/hand-negative-prompt'
+import { HoverSelectionController } from '../../vision/hover-selection-controller'
 import { MockSegmentationAdapter } from '../../vision/segmentation-adapter'
 import { RemoteSegmentationAdapter } from '../../vision/remote-segmentation-adapter'
 import { createVisionKitCameraRenderer } from '../../vision/visionkit-camera-renderer'
@@ -32,6 +37,7 @@ const segmenter = APP_CONFIG.USE_MOCK_SEGMENTATION
   ? mockSegmenter
   : new RemoteSegmentationAdapter(APP_CONFIG.VISION_API_BASE_URL)
 const visionGestureAdapter = new VisionKitHandGestureAdapter()
+const finalSegmenter = new FinalSegmentationController(segmenter)
 const visionSession = new VisionKitHandSession(
   (options) => wx.createVKSession(options),
   APP_CONFIG.VISIONKIT_FPS,
@@ -43,14 +49,28 @@ const frameSource = new WeChatCameraFrameSource(
 let latestFrame: CameraFrame | undefined
 let acceptedFrameCount = 0
 let visionKitStarting = false
+let visionStartTimeout: ReturnType<typeof setTimeout> | undefined
 let pageVisible = false
 let frameCapture: FrameCapture | undefined
 let lastSpatialRenderAt = 0
 let handExpiryTimer: ReturnType<typeof setTimeout> | undefined
 let touchActive = false
 let captureGeneration = 0
-type SelectionCapture = { image: string; point: NormalizedPoint; width: number; height: number }
+type SelectionCapture = FinalPhoto
 let grabbedFrame: Promise<{ capture?: SelectionCapture; error?: Error }> | undefined
+let finalCapturePending = false
+let resumingAfterCapture = false
+let photoLease: number | undefined
+let leasedFromVisionKit = false
+let resumeOnNextHand = false
+let captureHandTimer: ReturnType<typeof setTimeout> | undefined
+let photoReady: { resolve(): void; reject(error: Error): void } | undefined
+let lastLandmarks: NormalizedPoint[] = []
+let recaptureFinal: (() => Promise<FinalPhoto>) | undefined
+let hoverSelection: HoverSelectionController | undefined
+let motionSample: { point: NormalizedPoint; wrist?: NormalizedPoint; at: number } | undefined
+let cursorVelocity = 0
+let handVelocity = 0
 
 Page({
   data: {
@@ -82,6 +102,8 @@ Page({
     isGrabbed: false,
     isCopying: false,
     status: '按住目标并拖动',
+    finalCapturing: false,
+    candidateOutline: '',
   },
 
   onShow() {
@@ -127,13 +149,13 @@ Page({
   },
 
   onModeChange(event: { detail: { mode: CaptureMode } }) {
-    if (this.data.isCopying) return
+    if (this.data.isCopying || finalCapturePending) return
     this.cancelInteraction()
     this.setData({ mode: event.detail.mode, isGrabbed: false, gesture: 'HOVERING', status: '按住目标并拖动' })
   },
 
   onToggleScene() {
-    if (this.data.isCopying) return
+    if (this.data.isCopying || finalCapturePending) return
     this.cancelInteraction()
     this.setData({ isGrabbed: false, gesture: 'HOVERING' })
     const useMockScene = !this.data.useMockScene
@@ -153,12 +175,24 @@ Page({
   },
 
   onCameraReady() {
+    if (this.data.useVisionKit || this.data.useMockScene) return
     frameCapture = new CameraPhotoCapture()
+    if (photoReady) {
+      this.setData({ cameraReady: true, cameraError: '' })
+      photoReady.resolve()
+      return
+    }
     this.setData({ cameraReady: true, cameraError: '', handStatus: '实时画面 · 触摸调试' })
     if (!this.data.useMockScene) this.startCameraFrames()
   },
 
   onCameraError(event: { detail?: { errMsg?: string } }) {
+    if (this.data.useVisionKit || this.data.useMockScene) return
+    if (finalCapturePending) {
+      photoReady?.reject(new Error(event.detail?.errMsg || '高清相机初始化失败'))
+      this.setData({ cameraError: event.detail?.errMsg || '高清相机暂不可用' })
+      return
+    }
     this.stopCameraFrames()
     this.setData({
       cameraReady: false,
@@ -195,6 +229,7 @@ Page({
   startVisionKit() {
     if (visionKitStarting || !pageVisible || this.data.useMockScene || !this.data.useVisionKit) return
     visionKitStarting = true
+    visionStartTimeout = setTimeout(() => this.fallbackToCamera(new Error('VisionKit 启动超时')), CUTOUT_CONFIG.CAMERA_READY_TIMEOUT_MS)
     this.setData({ handStatus: 'VisionKit 初始化中…' })
 
     wx.createSelectorQuery()
@@ -223,7 +258,22 @@ Page({
           visionSession.start(canvas, renderer, {
             onHand: (anchor) => this.onVisionHand(anchor),
             onReady: () => {
+              if (visionStartTimeout) clearTimeout(visionStartTimeout)
+              visionStartTimeout = undefined
               visionKitStarting = false
+              if (resumingAfterCapture) {
+                finalCapturePending = false
+                resumingAfterCapture = false
+                this.setData({ finalCapturing: false })
+                if (!touchActive && spatialController.isDragging()) {
+                  resumeOnNextHand = true
+                  captureHandTimer = setTimeout(() => {
+                    resumeOnNextHand = false
+                    captureHandTimer = undefined
+                    this.onVisionHand()
+                  }, CUTOUT_CONFIG.HAND_REACQUIRE_TIMEOUT_MS)
+                }
+              }
               this.setData({ cameraReady: true, cameraError: '', handStatus: '请将手放入画面' })
             },
             onError: (error) => {
@@ -239,6 +289,11 @@ Page({
   },
 
   stopVisionKit() {
+    if (captureHandTimer) clearTimeout(captureHandTimer)
+    captureHandTimer = undefined
+    resumeOnNextHand = false
+    if (visionStartTimeout) clearTimeout(visionStartTimeout)
+    visionStartTimeout = undefined
     if (handExpiryTimer) clearTimeout(handExpiryTimer)
     handExpiryTimer = undefined
     visionKitStarting = false
@@ -248,20 +303,36 @@ Page({
   },
 
   fallbackToCamera(error: unknown) {
+    finalCapturePending = false
+    resumingAfterCapture = false
     this.stopVisionKit()
+    if (spatialController.isDragging()) {
+      captureGeneration++
+      spatialController.reset()
+      grabbedFrame = undefined
+    }
     console.warn('VisionKit unavailable, falling back to Camera API', error)
     this.setData({
       useVisionKit: false,
       cameraReady: false,
       handStatus: 'VisionKit 不可用 · 触摸调试',
       status: '按住目标并拖动',
+      finalCapturing: false,
+      isGrabbed: false,
     })
   },
 
   onVisionHand(anchor?: VisionKitHandAnchor) {
-    if (!pageVisible || touchActive || this.data.isCopying) return
+    if (!pageVisible || touchActive || this.data.isCopying || finalCapturePending) return
     const windowInfo = wx.getWindowInfo()
     const now = Date.now()
+    if (resumeOnNextHand) {
+      if (!anchor || anchor.points.length < 21 || !anchor.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) return
+      resumeOnNextHand = false
+      if (captureHandTimer) clearTimeout(captureHandTimer)
+      captureHandTimer = undefined
+      visionGestureAdapter.resumeAfterCapture(now - 1)
+    }
     const result = visionGestureAdapter.update(anchor, false, now, windowInfo.windowWidth / windowInfo.windowHeight)
     if (result.tracking === 'grace') {
       this.setData({ handStatus: '跟踪短暂中断 · 保持抓取', debugGesture: 'TRACKING_LOST · grace' })
@@ -273,12 +344,22 @@ Page({
       captureGeneration += 1
       spatialController.reset()
       grabbedFrame = undefined
+      hoverSelection?.reset()
+      this.setData({ candidateOutline: '' })
       this.setData({ isGrabbed: false, gesture: 'IDLE', handStatus: result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '请将手放入画面', debugGesture: result.phase })
       if (result.tracking === 'lost') return
     }
     handExpiryTimer = setTimeout(() => this.onVisionHand(), VISION_CONFIG.trackingLostGraceMs + 1)
     if (result.phase === 'REARMING') return
     const point = result.hand.cursor
+    lastLandmarks = result.hand.landmarks
+    const wrist = lastLandmarks[0]
+    if (motionSample && now > motionSample.at) {
+      const seconds = (now - motionSample.at) / 1000
+      cursorVelocity = Math.hypot(point.x - motionSample.point.x, point.y - motionSample.point.y) / seconds
+      handVelocity = wrist && motionSample.wrist ? Math.hypot(wrist.x - motionSample.wrist.x, wrist.y - motionSample.wrist.y) / seconds : 0
+    }
+    motionSample = { point: { ...point }, wrist: wrist && { ...wrist }, at: now }
     const forceRender = result.pinch === 'PINCH_START' || result.pinch === 'PINCH_END'
     const shouldRender = shouldRenderSpatialFrame(
       lastSpatialRenderAt,
@@ -326,6 +407,7 @@ Page({
     } else if (result.pinch === 'PINCH_END' && spatialController.isDragging()) {
       this.finishGrab()
     } else if (shouldRender) {
+      this.updateHoverSelection(point)
       this.setData({
         ...renderDebug,
         cursorX: point.x,
@@ -340,7 +422,7 @@ Page({
   },
 
   async onTouchStart(event: MiniProgramTouchEvent) {
-    if (this.data.isCopying || touchActive || spatialController.isDragging()) return
+    if (this.data.isCopying || touchActive || spatialController.isDragging() || finalCapturePending) return
     const touch = event.touches[0]
     if (!touch) return
     touchActive = true
@@ -413,9 +495,12 @@ Page({
       const result = await selectionFrame
       if (!pageVisible || generation !== captureGeneration) return
       if (!result?.capture) throw result?.error ?? new Error('抓取画面尚未准备好，请重新抓取')
-      const { image, point } = result.capture
       const [item] = await Promise.all([
-        segmenter.segment({ image, point, mode }),
+        finalSegmenter.segment(result.capture, mode, async () => {
+          this.setData({ status: '画面偏糊 · 请稳住手机，自动重拍一次' })
+          if (!recaptureFinal) throw new Error('高清相机尚未准备好')
+          return recaptureFinal()
+        }, this.data.coordinateDebug, () => pageVisible && generation === captureGeneration),
         new Promise((resolve) => setTimeout(resolve, APP_CONFIG.COPY_ANIMATION_MS)),
       ])
       if (!pageVisible || generation !== captureGeneration) return
@@ -426,11 +511,13 @@ Page({
       console.warn('Real segmentation failed', error)
       const detail = error instanceof Error ? error.message : '未知错误'
       spatialController.reset()
+      hoverSelection?.reset()
       this.setData({
         gesture: 'HOVERING',
         isGrabbed: false,
         isCopying: false,
         status: `真实抠图失败 · ${detail}`,
+        candidateOutline: '',
       })
       wx.showToast({ title: `抓取失败：${detail}`, icon: 'none', duration: 3600 })
     }
@@ -440,15 +527,107 @@ Page({
     const generation = ++captureGeneration
     // Reset the image node before reusing its file path on the next Grab.
     this.setData({ debugFrame: '', debugPoint: '' })
-    // Export immediately on Grab, not on Release after camera/hand movement.
-    grabbedFrame = this.captureSelectionFrame(selection).then((capture: SelectionCapture) => {
+    const windowInfo = wx.getWindowInfo()
+    const candidate = hoverSelection?.lock(selection)
+    const motionDebug = touchActive ? 'TOUCH' : `cursorV ${cursorVelocity.toFixed(2)} · handV ${handVelocity.toFixed(2)} /s`
+    this.setData({ candidateOutline: candidate?.outline ?? '' })
+    hoverSelection?.reset()
+    const input: FinalCaptureInput = { point: { ...selection }, viewWidth: windowInfo.windowWidth,
+      viewHeight: windowInfo.windowHeight, box: candidate?.bbox, negativePoints: CUTOUT_CONFIG.USE_HAND_NEGATIVE_PROMPT
+        ? buildHandNegativePrompt(touchActive ? [] : lastLandmarks, selection, candidate?.bbox) : [] }
+    const capture = CUTOUT_CONFIG.USE_HIGH_RES_FINAL_CAPTURE ? this.createFinalCapture(generation) : undefined
+    recaptureFinal = capture ? () => capture.capture(input) : undefined
+    // Tracking frames are selection-only. Final RGB comes from takePhoto high.
+    grabbedFrame = (capture ? capture.capture(input) : this.captureSelectionFrame(selection)).then((capture: SelectionCapture) => {
       if (pageVisible && generation === captureGeneration && this.data.coordinateDebug) {
         this.setData({ debugFrame: capture.image, debugFrameWidth: capture.width, debugFrameHeight: capture.height,
           framePointX: capture.point.x, framePointY: capture.point.y,
-          debugPoint: `screen ${selection.x.toFixed(3)}, ${selection.y.toFixed(3)} → frame ${capture.point.x.toFixed(3)}, ${capture.point.y.toFixed(3)} · ${capture.width}×${capture.height}` })
+          debugPoint: `screen ${selection.x.toFixed(3)}, ${selection.y.toFixed(3)} → photo ${capture.point.x.toFixed(3)}, ${capture.point.y.toFixed(3)} · ${capture.width}×${capture.height} · ${motionDebug} · t=${capture.createdAt} · box ${capture.box ? JSON.stringify(capture.box) : 'photo selection fallback'}` })
       }
       return { capture }
     }).catch((error: unknown) => ({ error: error instanceof Error ? error : new Error('画面导出失败') }))
+  },
+
+  updateHoverSelection(point: NormalizedPoint) {
+    if (!CUTOUT_CONFIG.USE_HOVER_SELECTION || !(segmenter instanceof RemoteSegmentationAdapter) || !this.data.useVisionKit || this.data.mode === 'color') return
+    if (!hoverSelection) hoverSelection = new HoverSelectionController(async (selected) => {
+      const image = await this.captureFramePath()
+      return (segmenter as RemoteSegmentationAdapter).select({ image, point: selected, mode: 'object' })
+    })
+    const generation = captureGeneration
+    void hoverSelection.observe(point).then(() => {
+      if (pageVisible && generation === captureGeneration && !spatialController.isDragging() && !this.data.isCopying) {
+        const candidate = hoverSelection?.lock(point)
+        this.setData({ candidateOutline: candidate?.outline ?? '' })
+      }
+    })
+  },
+
+  createFinalCapture(generation: number): FinalCaptureController {
+    const ownedByVisionKit = this.data.useVisionKit
+    let prepared = false
+    return new FinalCaptureController({
+      prepare: async () => {
+        if (!pageVisible || generation !== captureGeneration || this.data.useMockScene) throw new Error('请切回 CAMERA 并等待相机就绪')
+        if (!ownedByVisionKit) {
+          if (!this.data.cameraReady) throw new Error('摄像头尚未准备好')
+          prepared = true
+          photoLease = generation
+          leasedFromVisionKit = false
+          finalCapturePending = true
+          this.setData({ finalCapturing: true })
+          return
+        }
+        prepared = true
+        photoLease = generation
+        leasedFromVisionKit = true
+        finalCapturePending = true
+        resumingAfterCapture = false
+        if (handExpiryTimer) clearTimeout(handExpiryTimer)
+        handExpiryTimer = undefined
+        visionKitStarting = false
+        if (visionStartTimeout) clearTimeout(visionStartTimeout)
+        visionStartTimeout = undefined
+        visionSession.stop() // Do not reset the confirmed pinch on an intentional pause.
+        frameCapture = undefined
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => photoReady?.reject(new Error('高清相机启动超时，请重新抓取')), CUTOUT_CONFIG.CAMERA_READY_TIMEOUT_MS)
+          photoReady = {
+            resolve: () => { clearTimeout(timeout); photoReady = undefined; resolve() },
+            reject: (error) => { clearTimeout(timeout); photoReady = undefined; reject(error) },
+          }
+          this.setData({ useVisionKit: false, cameraReady: false, finalCapturing: true,
+            status: '已锁定目标 · 稳住手机，正在获取高清画面' })
+        })
+      },
+      capturePhoto: async () => {
+        if (!pageVisible || generation !== captureGeneration) throw new Error('抓取已取消')
+        const image = await new CameraPhotoCapture(wx.createCameraContext(), 'high').capture()
+        const dimensions = orientedDimensions(await new Promise<{ width: number; height: number; orientation?: string }>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('读取高清照片尺寸超时')), 5000)
+          wx.getImageInfo({ src: image,
+            success: result => { clearTimeout(timeout); resolve(result) },
+            fail: () => { clearTimeout(timeout); reject(new Error('无法读取高清照片尺寸')) } })
+        }))
+        return { image, ...dimensions }
+      },
+      restore: async () => {
+        if (!prepared || photoLease !== generation) return
+        photoLease = undefined
+        photoReady?.reject(new Error('高清拍照已结束'))
+        if (!ownedByVisionKit) {
+          finalCapturePending = false
+          this.setData({ finalCapturing: false })
+          return
+        }
+        this.stopCameraFrames()
+        frameCapture = undefined
+        resumingAfterCapture = pageVisible
+        finalCapturePending = pageVisible
+        this.setData({ useVisionKit: true, cameraReady: false, finalCapturing: pageVisible })
+        if (pageVisible) wx.nextTick(() => this.startVisionKit())
+      },
+    })
   },
 
   async captureSelectionFrame(selection: NormalizedPoint): Promise<SelectionCapture> {
@@ -464,10 +643,25 @@ Page({
     }))
     const transform = new CoordinateTransform({ viewWidth: windowInfo.windowWidth, viewHeight: windowInfo.windowHeight,
       frameWidth: dimensions.width, frameHeight: dimensions.height, source: useViewport ? 'viewport' : 'sensor' })
-    return { image, point: transform.screenToFrame(selection), ...dimensions }
+    return { image, point: transform.screenToFrame(selection), ...dimensions, negativePoints: [], createdAt: Date.now() }
   },
 
   cancelInteraction() {
+    if (captureHandTimer) clearTimeout(captureHandTimer)
+    captureHandTimer = undefined
+    resumeOnNextHand = false
+    photoReady?.reject(new Error('抓取已取消'))
+    const cancelledVisionPhoto = photoLease !== undefined && leasedFromVisionKit
+    photoLease = undefined
+    finalCapturePending = false
+    resumingAfterCapture = false
+    this.setData({ finalCapturing: false,
+      ...(cancelledVisionPhoto ? { useVisionKit: true, cameraReady: false } : {}) })
+    recaptureFinal = undefined
+    lastLandmarks = []
+    motionSample = undefined
+    hoverSelection?.reset()
+    this.setData({ candidateOutline: '' })
     captureGeneration += 1
     grabbedFrame = undefined
     touchActive = false
@@ -475,6 +669,7 @@ Page({
     handExpiryTimer = undefined
     spatialController.reset()
     visionGestureAdapter.reset()
+    if (cancelledVisionPhoto && pageVisible && !this.data.useMockScene) wx.nextTick(() => this.startVisionKit())
   },
 
   async captureFramePath(): Promise<string> {

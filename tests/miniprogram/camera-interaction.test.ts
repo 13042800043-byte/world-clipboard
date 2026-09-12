@@ -11,6 +11,10 @@ vi.mock('../../miniprogram/vision/frame-capture', () => ({
 vi.mock('../../miniprogram/vision/remote-segmentation-adapter', () => ({
   RemoteSegmentationAdapter: class { segment = mocks.segment },
 }))
+vi.mock('../../miniprogram/vision/visionkit-hand-session', () => ({
+  VisionKitHandSession: class { stop() {} start(_canvas: unknown, _renderer: unknown, callbacks: any) { callbacks.onReady() } },
+}))
+vi.mock('../../miniprogram/vision/visionkit-camera-renderer', () => ({ createVisionKitCameraRenderer: () => ({}) }))
 
 let page: any
 let navigate: ReturnType<typeof vi.fn>
@@ -30,7 +34,8 @@ beforeEach(async () => {
   })
   vi.stubGlobal('wx', {
     getWindowInfo: () => ({ windowWidth: 400, windowHeight: 800, pixelRatio: 3 }),
-    nextTick: () => {},
+    nextTick: (callback: () => void) => callback(),
+    createSelectorQuery: () => ({ select: () => ({ node: () => ({ exec: (cb: any) => cb([{ node: {} }]) }) }) }),
     createCameraContext: () => ({ onCameraFrame: () => ({ start() {}, stop() {} }) }),
     getImageInfo: (options: any) => options.success({ width: 640, height: 480, orientation: 'up' }),
     navigateTo: navigate,
@@ -44,12 +49,37 @@ beforeEach(async () => {
 afterEach(() => { page.onUnload(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('camera Grab snapshot lifecycle', () => {
+  it('ignores late native init callbacks after a cancelled camera handoff', async () => {
+    page.data.useVisionKit = true
+    page.onVisionHand(anchor(true))
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
+    expect(page.data.finalCapturing).toBe(true)
+    page.onHide()
+    expect(page.data.useVisionKit).toBe(true)
+    expect(page.data.finalCapturing).toBe(false)
+    page.onShow()
+    await vi.advanceTimersByTimeAsync(1)
+    page.onCameraReady() // Detached native Camera may finish initialization late.
+    expect(page.data.handStatus).not.toContain('触摸调试')
+    expect(mocks.segment).not.toHaveBeenCalled()
+  })
   it('keeps a brief hand loss but cancels missing tracking without copying', async () => {
     page.data.useVisionKit = true
     page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
     expect(page.data.isGrabbed).toBe(true)
+    // A deliberate VK → native Camera pause must not count as tracking loss.
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand()
+    expect(page.data.isGrabbed).toBe(true)
+    page.onCameraReady()
+    await vi.advanceTimersByTimeAsync(180)
+    // Native hand inference can need a warm-up after camera ownership returns.
+    await vi.advanceTimersByTimeAsync(500)
+    page.onVisionHand()
+    expect(page.data.isGrabbed).toBe(true)
+    page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand()
     expect(page.data.isGrabbed).toBe(true)
     await vi.advanceTimersByTimeAsync(120)
@@ -61,6 +91,7 @@ describe('camera Grab snapshot lifecycle', () => {
   })
   it('exports on Grab and sends the original mapped point, not drag end, once', async () => {
     await page.onTouchStart(touch(80, 320))
+    await vi.advanceTimersByTimeAsync(180)
     expect(mocks.capture).toHaveBeenCalledTimes(1)
     page.onTouchMove(touch(360, 640))
     const finish = page.onTouchEnd()
@@ -69,7 +100,8 @@ describe('camera Grab snapshot lifecycle', () => {
     await finish
     expect(mocks.capture).toHaveBeenCalledTimes(1)
     expect(mocks.segment).toHaveBeenCalledTimes(1)
-    expect(mocks.segment).toHaveBeenCalledWith({ image: 'tmp://grab.jpg', point: { x: 0.3875, y: 0.4 }, mode: 'object' })
+    expect(mocks.segment).toHaveBeenCalledWith(expect.objectContaining({ image: 'tmp://grab.jpg', point: { x: 0.3875, y: 0.4 }, mode: 'object',
+      prompt: { positivePoints: [{ x: .3875, y: .4 }], negativePoints: [], box: undefined } }))
     expect(navigate).toHaveBeenCalledTimes(1)
   })
   it('does not copy when a touch is cancelled', async () => {

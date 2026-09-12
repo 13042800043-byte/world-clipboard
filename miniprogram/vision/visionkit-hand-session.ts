@@ -44,6 +44,7 @@ export class VisionKitHandSession {
   private renderer?: VisionKitFrameRenderer;
   private running = false;
   private lastFrameAt = 0;
+  private generation = 0;
 
   constructor(
     private readonly createSession: SessionFactory = (options) => wx.createVKSession(options),
@@ -56,6 +57,7 @@ export class VisionKitHandSession {
     handlers: VisionKitSessionHandlers,
   ): void {
     this.stop();
+    const generation = this.generation;
     this.renderer = renderer;
     this.running = true;
     this.lastFrameAt = 0;
@@ -68,14 +70,14 @@ export class VisionKitHandSession {
       });
       this.session = session;
 
-      session.on('addAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers));
-      session.on('updateAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers));
+      session.on('addAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers, generation));
+      session.on('updateAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers, generation));
       session.on('removeAnchors', () => {
-        if (this.running) handlers.onHand(undefined);
+        if (this.running && generation === this.generation) handlers.onHand(undefined);
       });
 
       session.start((error) => {
-        if (!this.running) return;
+        if (!this.running || generation !== this.generation) return;
         if (error) {
           this.running = false;
           handlers.onError(error);
@@ -83,7 +85,7 @@ export class VisionKitHandSession {
         }
 
         handlers.onReady();
-        session.requestAnimationFrame((timestamp) => this.onFrame(timestamp, canvas));
+        session.requestAnimationFrame((timestamp) => this.onFrame(timestamp, canvas, generation));
       });
     } catch (error) {
       this.running = false;
@@ -92,6 +94,7 @@ export class VisionKitHandSession {
   }
 
   stop(): void {
+    this.generation++;
     this.running = false;
     this.session?.stop?.();
     this.renderer?.dispose();
@@ -102,12 +105,13 @@ export class VisionKitHandSession {
   private forwardFirstAnchor(
     anchors: VisionKitHandAnchor[],
     handlers: VisionKitSessionHandlers,
+    generation: number,
   ): void {
-    if (this.running) handlers.onHand(anchors[0]);
+    if (this.running && generation === this.generation) handlers.onHand(anchors[0]);
   }
 
-  private onFrame(timestamp: number, canvas: VisionKitCanvas): void {
-    if (!this.running || !this.session || !this.renderer) return;
+  private onFrame(timestamp: number, canvas: VisionKitCanvas, generation: number): void {
+    if (!this.running || generation !== this.generation || !this.session || !this.renderer) return;
 
     const interval = 1000 / this.fps;
     if (timestamp - this.lastFrameAt >= interval) {
@@ -116,6 +120,6 @@ export class VisionKitHandSession {
       if (frame) this.renderer.render(frame);
     }
 
-    this.session.requestAnimationFrame((nextTimestamp) => this.onFrame(nextTimestamp, canvas));
+    this.session.requestAnimationFrame((nextTimestamp) => this.onFrame(nextTimestamp, canvas, generation));
   }
 }

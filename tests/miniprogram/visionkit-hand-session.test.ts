@@ -6,6 +6,24 @@ import {
 import type { VisionKitHandAnchor } from '../../miniprogram/vision/visionkit-hand-tracker';
 
 describe('VisionKit hand session', () => {
+  it('does not forward old native callbacks into a restarted photo session', () => {
+    const generations: Array<Map<string, (value: VisionKitHandAnchor[]) => void>> = [];
+    const session = new VisionKitHandSession(() => {
+      const listeners = new Map<string, (value: VisionKitHandAnchor[]) => void>();
+      generations.push(listeners);
+      return { start: callback => callback(), stop() {}, on: (event, cb) => listeners.set(event, cb), requestAnimationFrame: () => 1, getVKFrame: () => undefined };
+    });
+    const onHand = vi.fn();
+    const handlers = { onHand, onReady: vi.fn(), onError: vi.fn() };
+    const renderer = { render: vi.fn(), dispose: vi.fn() };
+    session.start({ width: 1, height: 1 }, renderer, handlers);
+    session.start({ width: 1, height: 1 }, renderer, handlers);
+    generations[0].get('addAnchors')?.([createAnchor()]);
+    generations[0].get('removeAnchors')?.([]);
+    expect(onHand).not.toHaveBeenCalled();
+    generations[1].get('addAnchors')?.([createAnchor()]);
+    expect(onHand).toHaveBeenCalledOnce();
+  });
   it('starts official hand tracking, forwards anchors and renders camera frames', () => {
     const listeners = new Map<string, (value: VisionKitHandAnchor[]) => void>();
     let animationFrame: ((timestamp: number) => void) | undefined;

@@ -8,6 +8,15 @@ const input = {
 };
 
 describe('remote segmentation adapter', () => {
+  it('serializes point, box and hand negatives and preserves retry error codes', async () => {
+    const uploadFile = vi.fn(options => options.success({ statusCode: 422,
+      data: JSON.stringify({ error: { code: 'BLURRY_CAPTURE', message: 'hold still' } }) }));
+    const adapter = new RemoteSegmentationAdapter('http://127.0.0.1:8000', uploadFile);
+    const prompt = { positivePoints: [input.point], negativePoints: [{ x: .2, y: .8 }], box: { x: .3, y: .2, width: .4, height: .5 } };
+    await expect(adapter.segment({ ...input, prompt })).rejects.toMatchObject({ code: 'BLURRY_CAPTURE' });
+    expect(uploadFile.mock.calls[0][0].formData.prompt).toBe(JSON.stringify(prompt));
+  });
+
   it('uploads the captured frame and maps a validated response to ClipboardItem', async () => {
     const uploadFile = vi.fn((options) => options.success({
       statusCode: 200,

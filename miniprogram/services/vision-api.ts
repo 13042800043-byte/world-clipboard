@@ -8,6 +8,8 @@ export type SegmentApiSuccess = {
   preview: string;
   mask: string;
   bbox: { x: number; y: number; width: number; height: number };
+  outline?: string;
+  debug?: Record<string, unknown>;
 };
 
 export function segmentApiUrl(baseUrl: string): string {
@@ -38,6 +40,8 @@ export function parseSegmentResponse(value: unknown): SegmentApiSuccess {
     || !isPngData(response.preview)
     || !isPngData(response.mask)
     || !isNormalizedBox(response.bbox)
+    || (response.outline !== undefined && !isPngData(response.outline))
+    || (response.debug !== undefined && (!response.debug || typeof response.debug !== 'object' || Array.isArray(response.debug)))
   ) {
     throw new Error('invalid segmentation response');
   }

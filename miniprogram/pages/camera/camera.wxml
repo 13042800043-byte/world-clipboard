@@ -25,6 +25,8 @@
     binderror="onCameraError"
   ></camera>
 
+  <image wx:if="{{candidateOutline && !finalCapturing}}" class="candidate-outline {{isGrabbed ? 'candidate-outline--grabbed' : ''}}" src="{{candidateOutline}}" mode="scaleToFill" />
+
   <view wx:if="{{useMockScene}}" class="mock-scene" aria-label="摄像头模拟画面">
     <view class="mock-scene__light"></view>
     <view class="mock-scene__plant">
@@ -71,7 +73,7 @@
 
   <view class="instruction {{isGrabbed ? 'instruction--active' : ''}}">
     <text class="instruction__state">{{gesture}}</text>
-    <text>{{status}}</text>
+    <text>{{finalCapturing ? '已锁定目标 · 稳住手机，获取高清画面' : status}}</text>
   </view>
   </view>
 

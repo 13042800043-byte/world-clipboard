@@ -33,7 +33,7 @@ declare const wx: {
       stop(): void;
     };
     takePhoto(options: {
-      quality: 'normal';
+      quality: 'normal' | 'high';
       success(result: { tempImagePath: string }): void;
       fail(error: unknown): void;
     }): void;

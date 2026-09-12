@@ -14,6 +14,17 @@ type UploadOptions = {
 type UploadTask = { abort?(): void };
 type UploadFile = (options: UploadOptions) => UploadTask | void;
 
+export class VisionApiError extends Error {
+  constructor(message: string, readonly code?: string) { super(message); this.name = 'VisionApiError'; }
+}
+
+function backendErrorCode(data: string): string | undefined {
+  try {
+    const value = JSON.parse(data)?.error?.code;
+    return typeof value === 'string' ? value.slice(0, 60) : undefined;
+  } catch { return undefined; }
+}
+
 function normalizeUploadError(error: unknown): Error {
   if (error instanceof Error) return error;
   if (error && typeof error === 'object' && 'errMsg' in error) {
@@ -46,6 +57,25 @@ export class RemoteSegmentationAdapter implements Segmenter {
   ) {}
 
   async segment(input: SegmentationInput): Promise<ClipboardItem> {
+    const response = await this.request(input, 'final');
+    if (input.debug && response.debug) console.info('Final cutout diagnostics', response.debug);
+    return {
+      id: `remote-${response.mode}-${Date.now()}`,
+      type: response.mode,
+      createdAt: Date.now(),
+      sourceFrame: input.image,
+      previewImage: response.preview,
+      maskImage: response.mask,
+      bbox: response.bbox,
+      spatial: { x: input.point.x, y: input.point.y, scale: 1, rotation: 0 },
+    };
+  }
+
+  select(input: SegmentationInput): Promise<ReturnType<typeof parseSegmentResponse>> {
+    return this.request(input, 'selection');
+  }
+
+  private async request(input: SegmentationInput, stage: 'selection' | 'final'): Promise<ReturnType<typeof parseSegmentResponse>> {
     if (input.mode === 'color') throw new Error('color capture is handled on device');
 
     const response = await new Promise<ReturnType<typeof parseSegmentResponse>>((resolve, reject) => {
@@ -72,6 +102,9 @@ export class RemoteSegmentationAdapter implements Segmenter {
           pointX: String(input.point.x),
           pointY: String(input.point.y),
           mode: input.mode,
+          ...(stage === 'selection' ? { stage } : {}),
+          ...(input.prompt ? { prompt: JSON.stringify(input.prompt) } : {}),
+          ...(input.debug ? { debug: 'true' } : {}),
         },
         success(result) {
           if (result.statusCode < 200 || result.statusCode >= 300) {
@@ -79,7 +112,7 @@ export class RemoteSegmentationAdapter implements Segmenter {
             const message = detail
               ? `segmentation request failed (${result.statusCode}): ${detail}`
               : `segmentation request failed (${result.statusCode})`;
-            finish(() => reject(new Error(message)));
+            finish(() => reject(new VisionApiError(message, backendErrorCode(result.data))));
             return;
           }
           try {
@@ -93,15 +126,6 @@ export class RemoteSegmentationAdapter implements Segmenter {
       });
     });
 
-    return {
-      id: `remote-${response.mode}-${Date.now()}`,
-      type: response.mode,
-      createdAt: Date.now(),
-      sourceFrame: input.image,
-      previewImage: response.preview,
-      maskImage: response.mask,
-      bbox: response.bbox,
-      spatial: { x: input.point.x, y: input.point.y, scale: 1, rotation: 0 },
-    };
+    return response;
   }
 }
