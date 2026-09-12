@@ -46,9 +46,25 @@
     <view class="section-heading">
       <view>
         <text class="eyebrow">PERLER RESULT</text>
-        <text class="section-title">{{perler.size}} × {{perler.size}} 拼豆图纸</text>
+        <text class="section-title">{{perlerSettings.size}} × {{perlerSettings.size}} 拼豆图纸</text>
       </view>
       <text class="section-index">02</text>
+    </view>
+
+    <view class="perler-controls">
+      <view class="perler-control-row">
+        <text class="perler-control-label">尺寸</text>
+        <button size="mini" wx:for="{{perlerSizes}}" wx:key="*this" class="perler-option {{perlerSettings.size === item ? 'perler-option--active' : ''}}" data-setting="size" data-value="{{item}}" bindtap="onPerlerOptionSelect" disabled="{{perlerStatus === 'loading'}}">{{item}} 格</button>
+      </view>
+      <view class="perler-control-row">
+        <text class="perler-control-label">风格</text>
+        <button size="mini" wx:for="{{perlerStyles}}" wx:key="id" class="perler-option {{perlerSettings.style === item.id ? 'perler-option--active' : ''}}" data-setting="style" data-value="{{item.id}}" bindtap="onPerlerOptionSelect" disabled="{{perlerStatus === 'loading'}}">{{item.label}}</button>
+      </view>
+      <view class="perler-control-row">
+        <text class="perler-control-label">色数</text>
+        <button size="mini" wx:for="{{perlerLimits}}" wx:key="*this" class="perler-option {{perlerSettings.maxColors === item ? 'perler-option--active' : ''}}" data-setting="maxColors" data-value="{{item}}" bindtap="onPerlerOptionSelect" disabled="{{perlerStatus === 'loading'}}">≤ {{item}}</button>
+      </view>
+      <text class="perler-note">照片默认 48 格 · 透明位置不放豆 · 小字建议 64 格</text>
     </view>
 
     <view wx:if="{{perlerStatus === 'loading'}}" class="perler-state" aria-label="正在从真实抠图生成拼豆">
@@ -64,8 +80,15 @@
     </view>
 
     <block wx:elif="{{perlerStatus === 'ready'}}">
+    <view class="perler-view-switch">
+      <button size="mini" class="perler-option {{perlerView === 'beads' ? 'perler-option--active' : ''}}" data-mode="beads" bindtap="onPerlerViewSelect">拼豆效果</button>
+      <button size="mini" class="perler-option {{perlerView === 'chart' ? 'perler-option--active' : ''}}" data-mode="chart" bindtap="onPerlerViewSelect">色号图纸</button>
+      <button wx:if="{{perlerPreviewImage}}" size="mini" class="perler-option" bindtap="onPerlerPreview" disabled="{{previewOpening}}" aria-label="放大查看当前拼豆图纸">放大 ↗</button>
+    </view>
+    <text class="perler-palette-label">{{paletteLabel}}</text>
     <view class="perler-card">
-      <view class="perler-grid" aria-label="{{perler.size}}乘{{perler.size}}拼豆预览">
+      <image wx:if="{{perlerPreviewImage}}" src="{{perlerPreviewImage}}" class="perler-preview" mode="widthFix" bindtap="onPerlerPreview" aria-label="点击放大查看拼豆效果或色号图纸" />
+      <view wx:else class="perler-grid" aria-label="{{perler.size}}乘{{perler.size}}拼豆预览">
         <view class="perler-rows">
           <view wx:for="{{perlerRows}}" wx:for-item="row" wx:key="key" class="perler-row">
             <view
@@ -85,6 +108,7 @@
         <view class="meta-item"><text class="meta-label">BEADS</text><text class="meta-value">{{perler.totalBeads}}</text></view>
       </view>
     </view>
+    <text class="perler-note">MARD 色号来自开源色卡；实物颜色会受批次与屏幕影响。</text>
 
     <view class="palette-list">
       <view wx:for="{{perler.colors}}" wx:key="id" class="palette-row">

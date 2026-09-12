@@ -7,6 +7,14 @@ const clipboardSource = readFileSync('miniprogram/pages/clipboard/clipboard.ts',
 const clipboardStyle = readFileSync('miniprogram/pages/clipboard/clipboard.wxss', 'utf8')
 
 describe('clipboard captured image rendering', () => {
+  it('provides size/style controls and native high-resolution preview with row fallback', () => {
+    expect(clipboardWxml).toContain('perlerSizes')
+    expect(clipboardWxml).toContain('perlerStyles')
+    expect(clipboardWxml).toContain('perlerLimits')
+    expect(clipboardWxml).toContain('perlerPreviewImage')
+    expect(clipboardWxml).toContain('onPerlerPreview')
+    expect(clipboardWxml).toContain('色号图纸')
+  })
   it('renders explicit rows and prevents cell wrapping on fractional device widths', () => {
     expect(clipboardSource).toContain('buildPerlerRows')
     expect(clipboardWxml).toContain('wx:for="{{perlerRows}}"')

@@ -41,6 +41,17 @@ page { background: #f6f7f9; }
 .template-cell--half { width: 50%; }
 
 .perler-section { margin-top: 76rpx; }
+.perler-controls { padding: 16rpx; margin-bottom: 24rpx; border: 1rpx solid #e4e6e8; border-radius: 24rpx; background: #ffffff; }
+.perler-control-row { display: flex; align-items: center; margin-bottom: 8rpx; }
+.perler-control-label { flex-shrink: 0; width: 64rpx; color: #6f7478; font-size: 21rpx; }
+.perler-option { box-sizing: border-box; display: flex; flex: 1; align-items: center; justify-content: center; min-width: 0; min-height: 40px; margin: 0 4rpx; padding: 8rpx 6rpx; border: 1rpx solid transparent; border-radius: 14rpx; color: #646a70; font-size: 20rpx; line-height: 28rpx; background: #f6f7f9; }
+.perler-option::after { border: 0; }
+.perler-option--active { border-color: #c7cccf; color: #151719; background: #e9edef; font-weight: 600; }
+.perler-option[disabled] { opacity: 0.6; }
+.perler-note { display: block; margin: 12rpx 4rpx; color: #757b80; font-size: 18rpx; line-height: 28rpx; }
+.perler-view-switch { display: flex; margin: 0 -4rpx 14rpx; }
+.perler-palette-label { display: block; margin: 0 4rpx 14rpx; color: #757b80; font-size: 20rpx; }
+.perler-preview { display: block; width: 100%; }
 .perler-state { display: flex; min-height: 360rpx; flex-direction: column; align-items: center; justify-content: center; border: 1rpx solid #e4e6e8; border-radius: 30rpx; color: #72777b; background: #ffffff; }
 .perler-state__pulse { width: 54rpx; height: 54rpx; margin-bottom: 26rpx; border: 4rpx solid #d9dddf; border-top-color: #34383b; border-radius: 50%; animation: perler-spin 900ms linear infinite; }
 .perler-state__mark { display: flex; align-items: center; justify-content: center; width: 54rpx; height: 54rpx; margin-bottom: 24rpx; border: 2rpx solid #a9aeb1; border-radius: 50%; color: #656a6e; font-size: 28rpx; font-weight: 700; }
