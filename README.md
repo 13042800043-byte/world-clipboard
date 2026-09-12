@@ -24,7 +24,7 @@ Camera
 → 32 × 32 拼豆图纸与色号统计
 ```
 
-Camera 页右上角的 `MOCK / CAMERA` 可以切换交互调试背景。Mock 只验证光标与 Grab 动效，不再生成虚构动物或伪造抠图结果。
+默认使用干净的演示界面，仍可按住屏幕模拟 Grab / Drag / Release。需要调试背景时，把 `miniprogram/config.ts` 的 `SHOW_DEBUG_CONTROLS` 改为 `true`，显示 `MOCK / CAMERA` 切换按钮；需要 RAW / FILTER / LOCK 面板时，另将 `miniprogram/vision/vision-config.ts` 的 `showCoordinateDebug` 改为 `true`。Mock 只验证光标与 Grab 动效，不生成虚构动物或伪造抠图结果。
 
 真实抠图需要先启动本仓库自带的 Python 服务；服务不可达或超过 8 秒时，相机页会明确提示失败，不再用假图片伪装成功。
 
@@ -74,6 +74,7 @@ python -m venv .venv
 
 ```ts
 DEBUG_MODE
+SHOW_DEBUG_CONTROLS
 USE_MOCK_HAND_TRACKING
 USE_MOCK_SEGMENTATION
 ```
@@ -81,6 +82,16 @@ USE_MOCK_SEGMENTATION
 这些开关让 UI 与视觉模型解耦。当前 Hand Tracking 与 Segmentation 的 Mock 开关默认关闭：真机优先使用 VisionKit，分割请求本机后端。拼豆不再提供固定 Mock 图案，只接受真实透明抠图。
 
 本轮高清抠图配置位于 `miniprogram/vision/cutout-config.ts` 和 `backend/app/cutout_config.py`。实现、接口、性能结果与待真机验收事项见 [Final Cutout P0 报告](docs/final-cutout-p0.md)。高级 Fine Model / Alpha Matting 尚未接入，不能只改开关就启用。
+
+## 真机界面修复（2026-09-12）
+
+- 两页自定义导航使用 `wx.getWindowInfo()` 与实际微信胶囊位置预留状态栏、菜单空间，Camera 仍保持全屏，选点坐标映射不变。浅色 Clipboard 页使用深色状态栏文字。
+- 自定义按钮统一使用 `size="mini"`，卡片采用 border-box，避免微信默认按钮尺寸与 padding 将三列模板撑宽。
+- 默认关闭额外调试控件与坐标面板，保留 Spatial Cursor 和触摸调试。黑色“已连接 / 展开”属于外部真机调试浮窗，需折叠或退出真机调试、改用普通预览；项目无法直接隐藏它。
+- 无候选 bbox 的 GrabCut 搜索窗口改为选点周围半幅宽高、靠边直接裁切；有效候选 bbox 仍优先。它限制搜索范围，不等于识别出了目标边界。大物体应完整进入局部范围，或短暂停稳取得候选框；同色相连背景与透明瓶子仍可能分割错误，不能保证只输出瓶子，也不靠切断真实细杆伪造效果。
+- Camera YUV 公式已对照 [微信官方示例](https://github.com/wechat-miniprogram/miniprogram-demo/blob/master/miniprogram/packageAPI/pages/ar/hand-detect/yuvBehavior.js)，本次未修改颜色矩阵或 Gesture Engine。偏色尚未完成真机归因，需在相同光照、机位下对比 VisionKit 预览、原生 Camera 和高清照片，不应直接通过加对比度掩盖问题。
+
+验证：前端 92 项测试、后端 37 项测试通过；小程序 TypeScript、网页 build 通过。新增布局回归覆盖刘海屏、模拟器缺失胶囊；新增真实 GrabCut 合成场景覆盖相连桌面、近色背景、靠边选点和真实细杆。开发者工具 CLI 自动化连接因 IDE 端口超时未完成，WXML/WXSS 仍需点击编译并进行真机视觉复验，这些结果不代表已经完成手机验收。
 
 ## 本地质量检查
 
