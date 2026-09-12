@@ -7,6 +7,9 @@ const cameraStyle = readFileSync('miniprogram/pages/camera/camera.wxss', 'utf8')
 const cursorStyle = readFileSync('miniprogram/components/spatial-cursor/spatial-cursor.wxss', 'utf8')
 
 describe('camera WXML interaction boundary', () => {
+  it('does not show a fake stationary cursor when real tracking has no hand', () => {
+    expect(cameraWxml).toContain('handDetected || isGrabbed');
+  })
   it('shows mapped prompts on an uncropped captured frame in coordinate debug mode', () => {
     expect(cameraWxml).toContain('coordinateDebug')
     expect(cameraWxml).toContain('framePointX * 100')

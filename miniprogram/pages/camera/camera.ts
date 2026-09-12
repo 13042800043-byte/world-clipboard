@@ -50,6 +50,8 @@ const frameSource = new WeChatCameraFrameSource(
 let latestFrame: CameraFrame | undefined
 let acceptedFrameCount = 0
 let visionKitStarting = false
+let visionStartGeneration = 0
+let visionUnavailable = false
 let visionStartTimeout: ReturnType<typeof setTimeout> | undefined
 let pageVisible = false
 let frameCapture: FrameCapture | undefined
@@ -95,8 +97,10 @@ Page({
     framePointX: 0.5,
     framePointY: 0.56,
     useVisionKit: !APP_CONFIG.USE_MOCK_HAND_TRACKING,
+    visionCanvasMounted: true,
     useMockScene: false,
     cameraReady: false,
+    handDetected: false,
     cameraError: '',
     frameStatus: '等待实时画面',
     handStatus: 'VisionKit 初始化中…',
@@ -117,6 +121,10 @@ Page({
     wx.setNavigationBarColor?.({ frontColor: '#ffffff', backgroundColor: '#17191a' })
     this.cancelInteraction()
     pageVisible = true
+    if (visionUnavailable && !APP_CONFIG.USE_MOCK_HAND_TRACKING && !this.data.useMockScene) {
+      visionUnavailable = false
+      this.setData({ useVisionKit: true, cameraReady: false })
+    }
     lastSpatialRenderAt = 0
     this.setData({
       cursorX: 0.5,
@@ -126,13 +134,21 @@ Page({
       gesture: 'HOVERING',
       isGrabbed: false,
       isCopying: false,
-      status: '按住目标并拖动',
+      handDetected: false,
+      status: this.data.useVisionKit ? '将手放入画面 · 食指对准目标' : '按住目标并拖动',
       debugFrame: '',
       debugGesture: '',
       debugPoint: '',
     })
     if (this.data.useVisionKit && !this.data.useMockScene) {
-      wx.nextTick(() => this.startVisionKit())
+      // Returning from Clipboard must not reuse a disposed VK WebGL surface.
+      this.setData({ visionCanvasMounted: false })
+      const showGeneration = ++visionStartGeneration
+      wx.nextTick(() => {
+        if (!pageVisible || showGeneration !== visionStartGeneration) return
+        this.setData({ visionCanvasMounted: true })
+        wx.nextTick(() => this.startVisionKit())
+      })
     } else if (this.data.cameraReady && !this.data.useMockScene) {
       this.startCameraFrames()
     }
@@ -235,19 +251,19 @@ Page({
   },
 
   startVisionKit() {
-    if (visionKitStarting || !pageVisible || this.data.useMockScene || !this.data.useVisionKit) return
+    if (visionKitStarting || !pageVisible || this.data.useMockScene || !this.data.useVisionKit || !this.data.visionCanvasMounted) return
+    const startGeneration = ++visionStartGeneration
     visionKitStarting = true
-    visionStartTimeout = setTimeout(() => this.fallbackToCamera(new Error('VisionKit 启动超时')), CUTOUT_CONFIG.CAMERA_READY_TIMEOUT_MS)
+    visionStartTimeout = setTimeout(() => {
+      if (startGeneration === visionStartGeneration && pageVisible) this.fallbackToCamera(new Error('VisionKit 启动超时'))
+    }, CUTOUT_CONFIG.CAMERA_READY_TIMEOUT_MS)
     this.setData({ handStatus: 'VisionKit 初始化中…' })
 
     wx.createSelectorQuery()
       .select('#visionkit-canvas')
       .node()
       .exec((result) => {
-        if (!pageVisible || this.data.useMockScene || !this.data.useVisionKit) {
-          visionKitStarting = false
-          return
-        }
+        if (startGeneration !== visionStartGeneration || !pageVisible || this.data.useMockScene || !this.data.useVisionKit) return
         const canvas = result[0]?.node
         if (!canvas) {
           visionKitStarting = false
@@ -266,6 +282,7 @@ Page({
           visionSession.start(canvas, renderer, {
             onHand: (anchor) => this.onVisionHand(anchor),
             onReady: () => {
+              if (startGeneration !== visionStartGeneration || !pageVisible) return
               if (visionStartTimeout) clearTimeout(visionStartTimeout)
               visionStartTimeout = undefined
               visionKitStarting = false
@@ -285,6 +302,7 @@ Page({
               this.setData({ cameraReady: true, cameraError: '', handStatus: '请将手放入画面' })
             },
             onError: (error) => {
+              if (startGeneration !== visionStartGeneration || !pageVisible) return
               visionKitStarting = false
               this.fallbackToCamera(error)
             },
@@ -297,6 +315,7 @@ Page({
   },
 
   stopVisionKit() {
+    visionStartGeneration++
     if (captureHandTimer) clearTimeout(captureHandTimer)
     captureHandTimer = undefined
     resumeOnNextHand = false
@@ -311,6 +330,7 @@ Page({
   },
 
   fallbackToCamera(error: unknown) {
+    visionUnavailable = true
     finalCapturePending = false
     resumingAfterCapture = false
     this.stopVisionKit()
@@ -324,9 +344,10 @@ Page({
       useVisionKit: false,
       cameraReady: false,
       handStatus: 'VisionKit 不可用 · 触摸调试',
-      status: '按住目标并拖动',
+      status: '手势相机暂不可用 · 可按住屏幕抓取',
       finalCapturing: false,
       isGrabbed: false,
+      handDetected: false,
     })
   },
 
@@ -354,11 +375,12 @@ Page({
       grabbedFrame = undefined
       hoverSelection?.reset()
       this.setData({ candidateOutline: '' })
-      this.setData({ isGrabbed: false, gesture: 'IDLE', handStatus: result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '请将手放入画面', debugGesture: result.phase })
+      this.setData({ isGrabbed: false, handDetected: result.tracking !== 'lost', gesture: 'IDLE', handStatus: result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '请将手放入画面', status: result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '将手放入画面 · 食指对准目标', debugGesture: result.phase })
       if (result.tracking === 'lost') return
     }
     handExpiryTimer = setTimeout(() => this.onVisionHand(), VISION_CONFIG.trackingLostGraceMs + 1)
     if (result.phase === 'REARMING') return
+    if (!this.data.handDetected) this.setData({ handDetected: true })
     const point = result.hand.cursor
     lastLandmarks = result.hand.landmarks
     const wrist = lastLandmarks[0]
@@ -594,6 +616,7 @@ Page({
         if (handExpiryTimer) clearTimeout(handExpiryTimer)
         handExpiryTimer = undefined
         visionKitStarting = false
+        visionStartGeneration++
         if (visionStartTimeout) clearTimeout(visionStartTimeout)
         visionStartTimeout = undefined
         visionSession.stop() // Do not reset the confirmed pinch on an intentional pause.
@@ -664,6 +687,7 @@ Page({
     finalCapturePending = false
     resumingAfterCapture = false
     this.setData({ finalCapturing: false,
+      handDetected: false,
       ...(cancelledVisionPhoto ? { useVisionKit: true, cameraReady: false } : {}) })
     recaptureFinal = undefined
     lastLandmarks = []

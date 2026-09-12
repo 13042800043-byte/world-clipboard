@@ -59,30 +59,79 @@ export function createVisionKitCameraRenderer(
   const positionLocation = gl.getAttribLocation(program, 'a_position');
   const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord');
   const transformLocation = gl.getUniformLocation(program, 'displayTransform');
+  const yLocation = gl.getUniformLocation(program, 'y_texture');
+  const uvLocation = gl.getUniformLocation(program, 'uv_texture');
+  const vaoExtension = gl.getExtension('OES_vertex_array_object');
+  const cameraVao = vaoExtension?.createVertexArrayOES();
 
+  const previousProgram = gl.getParameter(gl.CURRENT_PROGRAM);
   gl.useProgram(program);
-  gl.uniform1i(gl.getUniformLocation(program, 'y_texture'), 5);
-  gl.uniform1i(gl.getUniformLocation(program, 'uv_texture'), 6);
+  gl.uniform1i(yLocation, 5);
+  gl.uniform1i(uvLocation, 6);
+  gl.useProgram(previousProgram);
+
+  let disposed = false;
 
   return {
     gl,
     render(frame: VisionKitFrame) {
+      if (disposed) return;
+      if (gl.isContextLost()) throw new Error('VisionKit WebGL context lost; restart camera');
       const cameraFrame = frame as CameraFrame;
       const { yTexture, uvTexture } = cameraFrame.getCameraTexture(gl, 'yuv');
       if (!yTexture || !uvTexture) return;
 
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.disable(gl.DEPTH_TEST);
-      gl.useProgram(program);
-      bindAttribute(gl, positionBuffer, positionLocation);
-      bindAttribute(gl, texCoordBuffer, texCoordLocation);
-      gl.uniformMatrix3fv(transformLocation, false, cameraFrame.getDisplayTransform());
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-      bindTexture(gl, 5, yTexture);
-      bindTexture(gl, 6, uvTexture);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      // VK and the preview share a context. Never inherit an offscreen FBO,
+      // blending or clipped/color-masked drawing left by a previous VK frame.
+      // Texture/program restoration follows Tencent's yuvBehavior.js above.
+      const savedProgram = gl.getParameter(gl.CURRENT_PROGRAM);
+      const savedActiveTexture = gl.getParameter(gl.ACTIVE_TEXTURE);
+      const savedFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+      const savedBuffer = gl.getParameter(gl.ARRAY_BUFFER_BINDING);
+      const savedVao = cameraVao ? gl.getParameter(vaoExtension.VERTEX_ARRAY_BINDING_OES) : null;
+      const savedAlignment = gl.getParameter(gl.UNPACK_ALIGNMENT);
+      const savedViewport = gl.getParameter(gl.VIEWPORT);
+      const savedColorMask = gl.getParameter(gl.COLOR_WRITEMASK);
+      const capabilities = [gl.DEPTH_TEST, gl.BLEND, gl.SCISSOR_TEST, gl.CULL_FACE];
+      const savedEnabled = capabilities.map(capability => gl.isEnabled(capability));
+      gl.activeTexture(gl.TEXTURE0 + 5);
+      const savedY = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      gl.activeTexture(gl.TEXTURE0 + 6);
+      const savedUV = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      try {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        capabilities.forEach(capability => gl.disable(capability));
+        gl.colorMask(true, true, true, true);
+        gl.useProgram(program);
+        gl.uniform1i(yLocation, 5);
+        gl.uniform1i(uvLocation, 6);
+        if (cameraVao) vaoExtension.bindVertexArrayOES(cameraVao);
+        bindAttribute(gl, positionBuffer, positionLocation);
+        bindAttribute(gl, texCoordBuffer, texCoordLocation);
+        gl.uniformMatrix3fv(transformLocation, false, cameraFrame.getDisplayTransform());
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        bindTexture(gl, 5, yTexture);
+        bindTexture(gl, 6, uvTexture);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      } finally {
+        bindTexture(gl, 5, savedY);
+        bindTexture(gl, 6, savedUV);
+        gl.activeTexture(savedActiveTexture);
+        gl.useProgram(savedProgram);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, savedFramebuffer);
+        if (cameraVao) vaoExtension.bindVertexArrayOES(savedVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, savedBuffer);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, savedAlignment);
+        gl.viewport(...savedViewport);
+        gl.colorMask(...savedColorMask);
+        capabilities.forEach((capability, index) => savedEnabled[index] ? gl.enable(capability) : gl.disable(capability));
+      }
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
+      if (cameraVao) vaoExtension.deleteVertexArrayOES(cameraVao);
       gl.deleteBuffer(positionBuffer);
       gl.deleteBuffer(texCoordBuffer);
       gl.deleteProgram(program);

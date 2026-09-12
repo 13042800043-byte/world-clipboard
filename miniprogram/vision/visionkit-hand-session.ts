@@ -16,6 +16,8 @@ export type VisionKitFrameRenderer = {
 export type VisionKitSessionLike = {
   start(callback: (error?: unknown) => void): void;
   stop?(): void;
+  destroy?(): void;
+  cancelAnimationFrame?(id: number): void;
   on(event: 'addAnchors' | 'updateAnchors' | 'removeAnchors', callback: (anchors: VisionKitHandAnchor[]) => void): void;
   requestAnimationFrame(callback: (timestamp: number) => void): number;
   getVKFrame(width: number, height: number): VisionKitFrame | undefined;
@@ -45,6 +47,8 @@ export class VisionKitHandSession {
   private running = false;
   private lastFrameAt = 0;
   private generation = 0;
+  private animationFrame?: number;
+  private handlers?: VisionKitSessionHandlers;
 
   constructor(
     private readonly createSession: SessionFactory = (options) => wx.createVKSession(options),
@@ -59,6 +63,7 @@ export class VisionKitHandSession {
     this.stop();
     const generation = this.generation;
     this.renderer = renderer;
+    this.handlers = handlers;
     this.running = true;
     this.lastFrameAt = 0;
 
@@ -79,27 +84,44 @@ export class VisionKitHandSession {
       session.start((error) => {
         if (!this.running || generation !== this.generation) return;
         if (error) {
-          this.running = false;
-          handlers.onError(error);
+          this.fail(error);
           return;
         }
 
         handlers.onReady();
-        session.requestAnimationFrame((timestamp) => this.onFrame(timestamp, canvas, generation));
+        if (this.running && generation === this.generation) this.animationFrame = session.requestAnimationFrame((timestamp) => this.onFrame(timestamp, canvas, generation));
       });
     } catch (error) {
-      this.running = false;
-      handlers.onError(error);
+      this.fail(error);
     }
   }
 
   stop(): void {
     this.generation++;
     this.running = false;
-    this.session?.stop?.();
-    this.renderer?.dispose();
+    const session = this.session;
+    const renderer = this.renderer;
+    const animationFrame = this.animationFrame;
     this.session = undefined;
     this.renderer = undefined;
+    this.handlers = undefined;
+    this.animationFrame = undefined;
+    // Official release APIs: https://github.com/wechat-miniprogram/api-typings/blob/master/types/wx/lib.wx.api.d.ts
+    // Every resource is released even if one native cleanup method fails.
+    for (const release of [
+      () => { if (animationFrame !== undefined) session?.cancelAnimationFrame?.(animationFrame); },
+      () => session?.stop?.(),
+      () => renderer?.dispose(),
+      () => session?.destroy?.(),
+    ]) {
+      try { release(); } catch (error) { console.warn('VisionKit cleanup failed', error); }
+    }
+  }
+
+  private fail(error: unknown): void {
+    const handlers = this.handlers;
+    this.stop();
+    handlers?.onError(error);
   }
 
   private forwardFirstAnchor(
@@ -113,13 +135,15 @@ export class VisionKitHandSession {
   private onFrame(timestamp: number, canvas: VisionKitCanvas, generation: number): void {
     if (!this.running || generation !== this.generation || !this.session || !this.renderer) return;
 
-    const interval = 1000 / this.fps;
-    if (timestamp - this.lastFrameAt >= interval) {
-      this.lastFrameAt = timestamp;
-      const frame = this.session.getVKFrame(canvas.width, canvas.height);
-      if (frame) this.renderer.render(frame);
-    }
-
-    this.session.requestAnimationFrame((nextTimestamp) => this.onFrame(nextTimestamp, canvas, generation));
+    this.animationFrame = undefined;
+    try {
+      const interval = 1000 / this.fps;
+      if (timestamp - this.lastFrameAt >= interval) {
+        this.lastFrameAt = timestamp;
+        const frame = this.session.getVKFrame(canvas.width, canvas.height);
+        if (frame) this.renderer.render(frame);
+      }
+      if (this.running && generation === this.generation && this.session) this.animationFrame = this.session.requestAnimationFrame((nextTimestamp) => this.onFrame(nextTimestamp, canvas, generation));
+    } catch (error) { this.fail(error); }
   }
 }

@@ -7,7 +7,7 @@
     catchtouchcancel="onTouchCancel"
   >
   <canvas
-    wx:if="{{useVisionKit && !useMockScene}}"
+    wx:if="{{useVisionKit && !useMockScene && visionCanvasMounted}}"
     class="camera-feed"
     type="webgl"
     id="visionkit-canvas"
@@ -15,7 +15,7 @@
   ></canvas>
 
   <camera
-    wx:elif="{{!useMockScene}}"
+    wx:elif="{{!useVisionKit && !useMockScene}}"
     class="camera-feed"
     device-position="back"
     flash="off"
@@ -38,6 +38,7 @@
   </view>
 
   <view
+    wx:if="{{!useVisionKit || handDetected || isGrabbed}}"
     class="captured captured--{{mode}} {{isGrabbed ? 'captured--grabbed' : ''}} {{isCopying ? 'captured--copying' : ''}}"
     style="left: {{objectX * 100}}%; top: {{objectY * 100}}%;"
     aria-label="空间选择区域"
@@ -54,7 +55,7 @@
     x="{{cursorX}}"
     y="{{cursorY}}"
     gesture="{{gesture}}"
-    visible="{{debugMode}}"
+    visible="{{(!useVisionKit && debugMode) || handDetected || isGrabbed}}"
   />
 
   <view wx:if="{{coordinateDebug}}" class="coordinate-debug">
