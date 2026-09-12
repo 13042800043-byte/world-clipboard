@@ -42,3 +42,25 @@ def test_generate_perler_rejects_images_without_visible_pixels() -> None:
         assert str(error) == "image has no visible foreground"
     else:
         raise AssertionError("expected empty alpha input to be rejected")
+
+
+def test_tall_object_has_straight_rows_and_row_major_coordinates() -> None:
+    """A tall package must stay upright, not become wrapped diagonal fragments."""
+    image = np.zeros((120, 80, 4), dtype=np.uint8)
+    image[15:100, 20:60] = (62, 54, 217, 255)
+    image[15:30, 20:60] = (65, 179, 227, 255)
+    result = generate_perler(image, size=32)
+    cells = result["cells"]
+    rows = [cells[y * 32:(y + 1) * 32] for y in range(32)]
+    occupied_columns = []
+    for y, row in enumerate(rows):
+        assert len(row) == 32
+        assert [cell["key"] for cell in row] == [f"{x}-{y}" for x in range(32)]
+        columns = [x for x, cell in enumerate(row) if not cell["empty"]]
+        if columns:
+            assert columns == list(range(columns[0], columns[-1] + 1))
+            occupied_columns.append(columns)
+    assert len(occupied_columns) == 28
+    assert len(occupied_columns[0]) == 13
+    assert all(columns == occupied_columns[0] for columns in occupied_columns)
+    assert result["totalBeads"] == 28 * 13

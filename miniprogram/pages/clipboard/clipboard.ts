@@ -3,6 +3,7 @@ import type { ClipboardItem } from '../../clipboard/clipboard-types'
 import { APP_CONFIG } from '../../config'
 import { getDeviceLayout } from '../../utils/device-layout'
 import { RemotePerlerGenerator } from '../../plugins/perler/perler-generator'
+import { buildPerlerRows, type PerlerRow } from '../../plugins/perler/perler-layout'
 
 const perlerGenerator = new RemotePerlerGenerator(APP_CONFIG.VISION_API_BASE_URL)
 
@@ -29,6 +30,7 @@ Page({
     showPerler: false,
     perlerStatus: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
     perlerError: '',
+    perlerRows: [] as PerlerRow[],
     perler: {
       size: 32,
       cells: [],
@@ -51,6 +53,7 @@ Page({
       showPerler: false,
       perlerStatus: 'idle',
       perlerError: '',
+      perlerRows: [],
       templates: templates.map((template) => ({ ...template, active: false })),
     })
   },
@@ -65,6 +68,7 @@ Page({
       showPerler: true,
       perlerStatus: 'loading',
       perlerError: '',
+      perlerRows: [],
       templates: templates.map((template) => ({
         ...template,
         active: template.id === 'perler',
@@ -74,7 +78,7 @@ Page({
 
     try {
       const perler = await perlerGenerator.generate(this.data.item, 32)
-      this.setData({ perler, perlerStatus: 'ready' })
+      this.setData({ perler, perlerRows: buildPerlerRows(perler), perlerStatus: 'ready' })
     } catch (error) {
       const perlerError = error instanceof Error && error.message === '请先完成真实物体抠图'
         ? error.message

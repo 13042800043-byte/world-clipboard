@@ -63,15 +63,20 @@
       <text class="perler-state__hint">返回相机，将光标放在物体内部重新抓取</text>
     </view>
 
-    <block wx:else>
+    <block wx:elif="{{perlerStatus === 'ready'}}">
     <view class="perler-card">
-      <view class="perler-grid" aria-label="32乘32拼豆预览">
-        <view
-          wx:for="{{perler.cells}}"
-          wx:key="key"
-          class="bead {{item.empty ? 'bead--empty' : ''}}"
-          style="background: {{item.color}};"
-        ></view>
+      <view class="perler-grid" aria-label="{{perler.size}}乘{{perler.size}}拼豆预览">
+        <view class="perler-rows">
+          <view wx:for="{{perlerRows}}" wx:for-item="row" wx:key="key" class="perler-row">
+            <view
+              wx:for="{{row.cells}}"
+              wx:for-item="cell"
+              wx:key="key"
+              class="bead {{cell.empty ? 'bead--empty' : ''}}"
+              style="background: {{cell.color}};"
+            ></view>
+          </view>
+        </view>
       </view>
 
       <view class="perler-meta">
