@@ -19,8 +19,10 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); clipboardStore.clea
 describe('perler quality workspace', () => {
   it('requests a detailed MARD pattern and switches bead/chart previews', async () => {
     await page.onTemplateSelect({ detail: { id: 'perler' } })
-    expect(mocks.generate).toHaveBeenCalledWith(expect.anything(), 48, { palette: 'mard221', style: 'cartoon', maxColors: 16, includePreviews: true })
+    expect(mocks.generate).toHaveBeenCalledWith(expect.anything(), 64, { palette: 'mard221', style: 'realistic', maxColors: 16, includePreviews: true })
     expect(page.data.perlerRows).toHaveLength(48)
+    vi.advanceTimersByTime(80)
+    expect(wx.pageScrollTo).toHaveBeenCalledWith(expect.objectContaining({ scrollTop: 0 }))
     expect(page.data.perlerPreviewImage).toBe(result.beadPreview)
     page.onPerlerViewSelect({ currentTarget: { dataset: { mode: 'chart' } } })
     expect(page.data.perlerPreviewImage).toBe(result.chartPreview)
@@ -42,5 +44,24 @@ describe('perler quality workspace', () => {
     resolve(result)
     await pending
     expect(page.data.perlerStatus).not.toBe('ready')
+  })
+  it('returns from the focused perler workspace to template selection', async () => {
+    await page.onTemplateSelect({ detail: { id: 'perler' } })
+    page.onPerlerExit()
+    expect(page.data.showPerler).toBe(false)
+    expect(page.data.templates.every((template: any) => !template.active)).toBe(true)
+  })
+  it('can reopen the workspace after exiting during a pending generation', async () => {
+    let resolve: (value: any) => void = () => {}
+    mocks.generate.mockReturnValueOnce(new Promise(r => { resolve = r }))
+    const pending = page.onTemplateSelect({ detail: { id: 'perler' } })
+    page.onPerlerExit()
+    await page.onTemplateSelect({ detail: { id: 'perler' } })
+    expect(mocks.generate).toHaveBeenCalledTimes(2)
+    expect(page.data.showPerler).toBe(true)
+    expect(page.data.perlerStatus).toBe('ready')
+    resolve(result)
+    await pending
+    expect(page.data.perlerStatus).toBe('ready')
   })
 })

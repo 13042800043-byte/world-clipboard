@@ -7,6 +7,14 @@ const clipboardSource = readFileSync('miniprogram/pages/clipboard/clipboard.ts',
 const clipboardStyle = readFileSync('miniprogram/pages/clipboard/clipboard.wxss', 'utf8')
 
 describe('clipboard captured image rendering', () => {
+  it('focuses the workspace on the source and pattern instead of the full plugin gallery', () => {
+    expect(clipboardWxml).toMatch(/<view wx:if="{{!showPerler}}" class="hero"/)
+    expect(clipboardWxml).toMatch(/<view wx:if="{{!showPerler}}" class="templates-section"/)
+    expect(clipboardWxml).toContain('perler-source')
+    expect(clipboardWxml).toContain('onPerlerExit')
+    expect(clipboardWxml).not.toContain('小字建议 64 格')
+    expect(clipboardStyle).toMatch(/\.nav\s*\{[^}]*position:\s*sticky/)
+  })
   it('provides size/style controls and native high-resolution preview with row fallback', () => {
     expect(clipboardWxml).toContain('perlerSizes')
     expect(clipboardWxml).toContain('perlerStyles')

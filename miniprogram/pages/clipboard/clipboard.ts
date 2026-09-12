@@ -34,10 +34,10 @@ Page({
     perlerStatus: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
     perlerError: '',
     perlerRows: [] as PerlerRow[],
-    perlerSettings: { size: 48, palette: 'mard221', style: 'cartoon', maxColors: 16 },
+    perlerSettings: { size: 64, palette: 'mard221', style: 'realistic', maxColors: 16 },
     perlerSizes: [32, 48, 64],
     perlerLimits: [8, 16, 24],
-    perlerStyles: [{ id: 'cartoon', label: '清晰色块' }, { id: 'realistic', label: '保留细节' }],
+    perlerStyles: [{ id: 'cartoon', label: '色块简化' }, { id: 'realistic', label: '线条保留' }],
     perlerView: 'beads',
     perlerPreviewImage: '',
     paletteLabel: '',
@@ -85,6 +85,12 @@ Page({
     wx.navigateBack({ delta: 1 })
   },
 
+  onPerlerExit() {
+    perlerGeneration++
+    this.setData({ showPerler: false, perlerStatus: 'idle', previewOpening: false, templates: templates.map(template => ({ ...template, active: false })) })
+    wx.pageScrollTo({ scrollTop: 0, duration: 200 })
+  },
+
   async onTemplateSelect(event: { detail: { id: string } }) {
     if (event.detail.id !== 'perler' || this.data.perlerStatus === 'loading') return
     this.setData({
@@ -98,7 +104,7 @@ Page({
       })),
     })
     const scrollGeneration = perlerGeneration + 1
-    setTimeout(() => { if (scrollGeneration === perlerGeneration) wx.pageScrollTo({ selector: '#perler-result', duration: 360 }) }, 80)
+    setTimeout(() => { if (scrollGeneration === perlerGeneration) wx.pageScrollTo({ scrollTop: 0, duration: 200 }) }, 80)
     await this.generatePerler()
   },
 

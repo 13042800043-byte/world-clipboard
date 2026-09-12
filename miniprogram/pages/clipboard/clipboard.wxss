@@ -4,7 +4,10 @@ page { background: #f6f7f9; }
 
 .nav {
   box-sizing: border-box;
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f6f7f9;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -40,7 +43,14 @@ page { background: #f6f7f9; }
 .template-cell--third { width: 33.333%; }
 .template-cell--half { width: 50%; }
 
-.perler-section { margin-top: 76rpx; }
+.perler-section { margin-top: 24rpx; }
+.perler-source { display: flex; align-items: center; min-width: 0; margin-bottom: 24rpx; padding: 12rpx; border-radius: 20rpx; background: #ffffff; }
+.perler-source__image { flex-shrink: 0; width: 88rpx; height: 112rpx; }
+.perler-source__info { display: flex; flex: 1; min-width: 0; flex-direction: column; margin-left: 12rpx; }
+.perler-source__title { font-size: 23rpx; color: #151719; }
+.perler-source__hint { margin-top: 8rpx; font-size: 18rpx; line-height: 26rpx; color: #757b80; }
+.perler-exit { flex-shrink: 0; margin: 0; padding: 8rpx 12rpx; font-size: 20rpx; color: #575d62; background: #f6f7f9; }
+.perler-exit::after { border: 0; }
 .perler-controls { padding: 16rpx; margin-bottom: 24rpx; border: 1rpx solid #e4e6e8; border-radius: 24rpx; background: #ffffff; }
 .perler-control-row { display: flex; align-items: center; margin-bottom: 8rpx; }
 .perler-control-label { flex-shrink: 0; width: 64rpx; color: #6f7478; font-size: 21rpx; }

@@ -7,7 +7,7 @@
     </view>
   </view>
 
-  <view class="hero">
+  <view wx:if="{{!showPerler}}" class="hero">
     <view class="nav__type">{{typeLabel}}</view>
     <view class="hero__glow"></view>
     <object-preview
@@ -26,7 +26,7 @@
     </view>
   </view>
 
-  <view class="templates-section">
+  <view wx:if="{{!showPerler}}" class="templates-section">
     <view class="section-heading">
       <view>
         <text class="eyebrow">PASTE PLUGINS</text>
@@ -43,6 +43,11 @@
   </view>
 
   <view wx:if="{{showPerler}}" id="perler-result" class="perler-section">
+    <view class="perler-source">
+      <image class="perler-source__image" src="{{previewImage}}" mode="aspectFit" aria-label="当前真实抠图原图" />
+      <view class="perler-source__info"><text class="perler-source__title">从真实抠图生成</text><text class="perler-source__hint">底板若在抠图中，也会进入图案</text></view>
+      <button size="mini" class="perler-exit" bindtap="onPerlerExit">返回模板</button>
+    </view>
     <view class="section-heading">
       <view>
         <text class="eyebrow">PERLER RESULT</text>
@@ -64,7 +69,8 @@
         <text class="perler-control-label">色数</text>
         <button size="mini" wx:for="{{perlerLimits}}" wx:key="*this" class="perler-option {{perlerSettings.maxColors === item ? 'perler-option--active' : ''}}" data-setting="maxColors" data-value="{{item}}" bindtap="onPerlerOptionSelect" disabled="{{perlerStatus === 'loading'}}">≤ {{item}}</button>
       </view>
-      <text class="perler-note">照片默认 48 格 · 透明位置不放豆 · 小字建议 64 格</text>
+      <text class="perler-note">默认 64 格＋线条保留 · 透明位置不放豆</text>
+      <text class="perler-note">细线会简化为一格宽；比一格更密的纹理无法逐条还原。</text>
     </view>
 
     <view wx:if="{{perlerStatus === 'loading'}}" class="perler-state" aria-label="正在从真实抠图生成拼豆">
@@ -81,7 +87,7 @@
 
     <block wx:elif="{{perlerStatus === 'ready'}}">
     <view class="perler-view-switch">
-      <button size="mini" class="perler-option {{perlerView === 'beads' ? 'perler-option--active' : ''}}" data-mode="beads" bindtap="onPerlerViewSelect">拼豆效果</button>
+      <button size="mini" class="perler-option {{perlerView === 'beads' ? 'perler-option--active' : ''}}" data-mode="beads" bindtap="onPerlerViewSelect">图案预览</button>
       <button size="mini" class="perler-option {{perlerView === 'chart' ? 'perler-option--active' : ''}}" data-mode="chart" bindtap="onPerlerViewSelect">色号图纸</button>
       <button wx:if="{{perlerPreviewImage}}" size="mini" class="perler-option" bindtap="onPerlerPreview" disabled="{{previewOpening}}" aria-label="放大查看当前拼豆图纸">放大 ↗</button>
     </view>
