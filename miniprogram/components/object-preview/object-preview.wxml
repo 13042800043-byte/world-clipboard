@@ -1,4 +1,6 @@
 <view class="preview preview--{{type}}">
+  <image wx:if="{{previewImage}}" class="segmented-image" src="{{previewImage}}" mode="aspectFit" />
+  <block wx:else>
   <block wx:if="{{type === 'object'}}">
     <view class="shadow"></view>
     <view class="cat-ear cat-ear--left"></view>
@@ -23,4 +25,5 @@
     <view class="outline-ear outline-ear--left"></view>
     <view class="outline-ear outline-ear--right"></view>
   </view>
+  </block>
 </view>

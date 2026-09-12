@@ -16,6 +16,7 @@ Page({
     typeLabel: '物体',
     colorHex: '#6E747A',
     rgbText: '110, 116, 122',
+    previewImage: '',
     templates,
     showPerler: false,
     perler: {
@@ -34,6 +35,7 @@ Page({
       typeLabel: getTypeLabel(item.type),
       colorHex: color.hex,
       rgbText: color.rgb.join(', '),
+      previewImage: getRealPreview(item.previewImage),
       showPerler: false,
       templates: templates.map((template) => ({ ...template, active: false })),
     })
@@ -74,4 +76,8 @@ function getTypeLabel(type: ClipboardItem['type']): string {
   if (type === 'color') return '颜色'
   if (type === 'contour') return '轮廓'
   return '物体'
+}
+
+function getRealPreview(previewImage?: string): string {
+  return previewImage?.startsWith('data:image/png;base64,') ? previewImage : ''
 }

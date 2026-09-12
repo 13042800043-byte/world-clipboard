@@ -10,7 +10,11 @@
 
   <view class="hero">
     <view class="hero__glow"></view>
-    <object-preview type="{{item.type}}" color-hex="{{colorHex}}" />
+    <object-preview
+      type="{{item.type}}"
+      color-hex="{{colorHex}}"
+      preview-image="{{previewImage}}"
+    />
     <view class="capture-badge"><text class="capture-badge__dot"></text>已复制到剪贴板</view>
   </view>
 

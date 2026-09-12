@@ -6,8 +6,17 @@ import {
   WeChatCameraFrameSource,
   type CameraFrame,
 } from '../../vision/camera-frame-source'
+import {
+  CameraPhotoCapture,
+  VisionKitCanvasCapture,
+  type FrameCapture,
+} from '../../vision/frame-capture'
 import { MockHandTracker } from '../../vision/hand-tracker'
 import { MockSegmentationAdapter } from '../../vision/segmentation-adapter'
+import {
+  FallbackSegmentationAdapter,
+  RemoteSegmentationAdapter,
+} from '../../vision/remote-segmentation-adapter'
 import { createVisionKitCameraRenderer } from '../../vision/visionkit-camera-renderer'
 import { VisionKitHandSession } from '../../vision/visionkit-hand-session'
 import {
@@ -17,7 +26,13 @@ import {
 
 const spatialController = new SpatialController()
 const handTracker = new MockHandTracker()
-const segmenter = new MockSegmentationAdapter()
+const mockSegmenter = new MockSegmentationAdapter()
+const segmenter = APP_CONFIG.USE_MOCK_SEGMENTATION
+  ? mockSegmenter
+  : new FallbackSegmentationAdapter(
+      new RemoteSegmentationAdapter(APP_CONFIG.VISION_API_BASE_URL),
+      mockSegmenter,
+    )
 const visionGestureAdapter = new VisionKitHandGestureAdapter()
 const visionSession = new VisionKitHandSession(
   (options) => wx.createVKSession(options),
@@ -31,6 +46,7 @@ let latestFrame: CameraFrame | undefined
 let acceptedFrameCount = 0
 let visionKitStarting = false
 let pageVisible = false
+let frameCapture: FrameCapture | undefined
 
 Page({
   data: {
@@ -111,6 +127,7 @@ Page({
   },
 
   onCameraReady() {
+    frameCapture = new CameraPhotoCapture()
     this.setData({ cameraReady: true, cameraError: '', handStatus: '实时画面 · 触摸调试' })
     if (!this.data.useMockScene) this.startCameraFrames()
   },
@@ -174,6 +191,7 @@ Page({
           const pixelRatio = windowInfo.pixelRatio || 1
           canvas.width = Math.round(windowInfo.windowWidth * pixelRatio)
           canvas.height = Math.round(windowInfo.windowHeight * pixelRatio)
+          frameCapture = new VisionKitCanvasCapture(canvas)
           const renderer = createVisionKitCameraRenderer(canvas)
 
           visionSession.start(canvas, renderer, {
@@ -198,6 +216,7 @@ Page({
     visionKitStarting = false
     visionGestureAdapter.reset()
     visionSession.stop()
+    frameCapture = undefined
   },
 
   fallbackToCamera(error: unknown) {
@@ -300,20 +319,24 @@ Page({
       status: '正在复制现实…',
     })
 
-    const item = await segmenter.segment({
-      image: latestFrame
-        ? 'camera://latest-frame'
-        : this.data.useVisionKit
-          ? 'visionkit://latest-frame'
-          : 'mock://camera-frame',
-      point,
-      mode: this.data.mode,
-    })
+    const image = await this.captureFramePath()
+    const [item] = await Promise.all([
+      segmenter.segment({ image, point, mode: this.data.mode }),
+      new Promise((resolve) => setTimeout(resolve, APP_CONFIG.COPY_ANIMATION_MS)),
+    ])
     clipboardStore.set(item)
+    wx.navigateTo({ url: '/pages/clipboard/clipboard' })
+  },
 
-    setTimeout(() => {
-      wx.navigateTo({ url: '/pages/clipboard/clipboard' })
-    }, APP_CONFIG.COPY_ANIMATION_MS)
+  async captureFramePath(): Promise<string> {
+    if (!this.data.useMockScene && frameCapture) {
+      try {
+        return await frameCapture.capture()
+      } catch (error) {
+        console.warn('Frame capture unavailable, using demo content', error)
+      }
+    }
+    return latestFrame ? 'camera://latest-frame' : 'mock://camera-frame'
   },
 
   onTouchCancel() {
