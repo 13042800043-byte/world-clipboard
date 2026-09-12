@@ -39,6 +39,22 @@ Camera
 
 验证：新增锁点颜色分流、邻域去极值、边缘采样、空像素和超时 / 迟到回调测试，159 项前端测试、小程序 TypeScript 和两页 WXML/WXSS 编译通过。手势算法、照片锁点 / 拍照交接和后端未改。颜色来自相机 RGB，会受自动白平衡、曝光与光照影响，不是经过实物校色的测色仪；不同手机的照片方向 / 实际取色对应关系仍需真机测试。关闭旧小程序、重新编译并生成新预览后生效。
 
+### 轮廓抓取与物体抓取的区别
+
+选择「轮廓」后按同样的 Grab / Release 操作，Clipboard 展示 **#111111 单色剪影 + 透明背景**，不包含物体原色、纹理或照片中的文字；「物体」仍显示原色透明抠图。轮廓直接复用已有分割 Mask，不重新执行模型推理，透明孔洞以 Mask 的实际结果为准（不额外修补或臆造孔洞）。
+
+`/api/segment` 的 `mode=contour, stage=final` 现在返回剪影 `preview` 和真实 `contour` 坐标，Adapter 写入已有 `ClipboardItem.contour`，不修改基础数据结构。坐标是原始照片归一化坐标，不是剪影裁切坐标；最多 1024 个顶点，仅最大外环，内孔仍由 PNG alpha / Mask 保留。候选 selection 阶段保持原有白色悬停描边，手势、物体和本地取色流程不改。外环提取与简化使用 [OpenCV 官方 contour / approxPolyDP 接口](https://docs.opencv.org/4.x/dd/d49/tutorial_py_contour_features.html)，不是矩形 Mock，也不是把彩色图片做 CSS 灰度处理。
+
+后端与小程序需一起更新：本次服务已重启，手机关闭旧预览后重新编译、生成新预览并重新抓取，旧 Clipboard 项目不会自动变成轮廓。若服务还在运行旧代码，小程序会提示更新后端，不再把旧彩色预览伪装成轮廓。验证：167 项前端、102 项后端测试和小程序 TypeScript 通过；合成场景已通过局域网实时 API 检查，不等于完成目标手机视觉验收。轮廓准确度仍依赖当前分割 Mask。
+
+实时模式分流检查（输出到忽略的 `test-results/contour`）：
+
+```powershell
+.\backend\.venv\Scripts\python.exe backend/scripts/verify_contour.py --api-url http://192.168.28.20:8000
+```
+
+若电脑局域网 IP 改变，请同时调整命令和 `miniprogram/config.ts` 的地址。
+
 ## 启动视觉后端
 
 Windows PowerShell（Python 3.12+）：
