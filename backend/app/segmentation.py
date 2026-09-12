@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
+from app.mask_refiner import cleanup_mask
 
 
 @dataclass(frozen=True)
@@ -9,6 +10,7 @@ class SegmentationResult:
     cutout: np.ndarray
     mask: np.ndarray
     bbox: dict[str, float]
+    debug: dict[str, object] | None = None
 
 
 def resize_for_segmentation(image: np.ndarray, max_side: int = 512) -> np.ndarray:
@@ -26,6 +28,8 @@ def resize_for_segmentation(image: np.ndarray, max_side: int = 512) -> np.ndarra
 def segment_foreground(
     image: np.ndarray,
     point: tuple[float, float],
+    box: dict[str, float] | None = None,
+    negative_points: list[tuple[float, float]] | None = None,
 ) -> SegmentationResult:
     """Extract the connected foreground region selected by a normalized point."""
     if image.ndim != 3 or image.shape[2] not in (3, 4):
@@ -39,6 +43,15 @@ def segment_foreground(
         raise ValueError("image is too small")
 
     mask = build_point_prompt_mask(width, height, point)
+    if box is not None:
+        mask[:] = cv2.GC_BGD
+        left, top = round(box['x'] * width), round(box['y'] * height)
+        right, bottom = min(width, round((box['x'] + box['width']) * width)), min(height, round((box['y'] + box['height']) * height))
+        mask[top:bottom, left:right] = cv2.GC_PR_FGD
+        cv2.circle(mask, (round(point[0] * (width - 1)), round(point[1] * (height - 1))), 2, cv2.GC_FGD, -1)
+    for nx, ny in negative_points or []:
+        if np.hypot(nx - point[0], ny - point[1]) > 0.06:
+            cv2.circle(mask, (round(nx * (width - 1)), round(ny * (height - 1))), 2, cv2.GC_BGD, -1)
     background_model = np.zeros((1, 65), dtype=np.float64)
     foreground_model = np.zeros((1, 65), dtype=np.float64)
     cv2.grabCut(
@@ -109,14 +122,4 @@ def _prompt_rectangle(
 
 
 def _component_at_point(mask: np.ndarray, point: tuple[float, float]) -> np.ndarray:
-    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    if count <= 1:
-        return mask
-
-    height, width = mask.shape
-    point_x = min(width - 1, round(point[0] * (width - 1)))
-    point_y = min(height - 1, round(point[1] * (height - 1)))
-    label = int(labels[point_y, point_x])
-    if label == 0:
-        label = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
-    return np.where(labels == label, 255, 0).astype(np.uint8)
+    return cleanup_mask(mask, point)

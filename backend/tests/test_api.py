@@ -12,6 +12,53 @@ from app.main import ApiError, _ensure_safe_image_dimensions, app
 client = TestClient(app)
 
 
+def test_selection_returns_a_real_outline_and_validates_final_prompt() -> None:
+    frame = np.full((100, 140, 3), (30, 160, 30), np.uint8)
+    frame[25:75, 40:100] = (20, 20, 230)
+    _, encoded = cv2.imencode('.png', frame)
+    upload = {'image': ('frame.png', encoded.tobytes(), 'image/png')}
+    fields = {'pointX': '.5', 'pointY': '.5', 'mode': 'object', 'stage': 'selection'}
+    response = client.post('/api/segment', files=upload, data=fields)
+    assert response.status_code == 200
+    outline = cv2.imdecode(np.frombuffer(base64.b64decode(response.json()['outline'].split(',')[1]), np.uint8), cv2.IMREAD_UNCHANGED)
+    assert outline.shape == (100, 140, 4)
+    assert np.count_nonzero(outline[:, :, 3]) > 0
+    fields.update(stage='final', prompt='{"positivePoints":[{"x":0.1,"y":0.5}]}')
+    rejected = client.post('/api/segment', files=upload, data=fields)
+    assert rejected.status_code == 422
+    assert rejected.json()['error']['code'] == 'INVALID_PROMPT'
+    fields['prompt'] = '{"box":{"x":0.8,"y":0.2,"width":0.5,"height":0.3}}'
+    assert client.post('/api/segment', files=upload, data=fields).status_code == 422
+
+
+def test_blurry_final_photo_returns_a_retryable_code() -> None:
+    frame = np.full((600, 1000, 3), (30, 160, 30), np.uint8)
+    frame[180:420, 300:700] = (20, 20, 230)
+    frame = cv2.GaussianBlur(frame, (51, 51), 12)
+    _, encoded = cv2.imencode('.png', frame)
+    response = client.post('/api/segment', files={'image': ('blur.png', encoded.tobytes(), 'image/png')},
+        data={'pointX': '.5', 'pointY': '.5', 'mode': 'object'})
+    assert response.status_code == 422
+    assert response.json()['error']['code'] == 'BLURRY_CAPTURE'
+
+
+def test_final_segment_retains_original_rgb_and_mask_resolution() -> None:
+    image = np.full((600, 1000, 3), (30, 160, 30), dtype=np.uint8)
+    image[180:420, 300:700] = (20, 20, 230)
+    image[250:350, 400:600:2] = (25, 25, 235)
+    _, encoded = cv2.imencode('.png', image)
+    response = client.post('/api/segment', files={'image': ('high.png', encoded.tobytes(), 'image/png')},
+                           data={'pointX': '0.5', 'pointY': '0.5', 'mode': 'object'})
+    assert response.status_code == 200
+    payload = response.json()
+    mask = cv2.imdecode(np.frombuffer(base64.b64decode(payload['mask'].split(',')[1]), np.uint8), cv2.IMREAD_UNCHANGED)
+    preview = cv2.imdecode(np.frombuffer(base64.b64decode(payload['preview'].split(',')[1]), np.uint8), cv2.IMREAD_UNCHANGED)
+    assert mask.shape == (600, 1000)
+    assert preview.shape[1] >= 390
+    x, y = round(payload['bbox']['x'] * 1000), round(payload['bbox']['y'] * 600)
+    assert np.array_equal(preview[:, :, :3], image[y:y+preview.shape[0], x:x+preview.shape[1]])
+
+
 def test_camera_jpeg_is_decoded_in_exif_display_orientation() -> None:
     # Frontend maps to oriented dimensions, matching IMREAD_COLOR in /segment.
     source = Image.new("RGB", (100, 60), (30, 160, 30))
