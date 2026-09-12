@@ -55,4 +55,22 @@ describe('remote segmentation adapter', () => {
 
     expect(item.previewImage).toBe('mock://cat-object');
   });
+
+  it('aborts a stalled upload so the demo can fall back promptly', async () => {
+    vi.useFakeTimers();
+    const abort = vi.fn();
+    const adapter = new RemoteSegmentationAdapter(
+      'http://127.0.0.1:8000',
+      () => ({ abort }),
+      50,
+    );
+
+    const pending = adapter.segment(input);
+    const assertion = expect(pending).rejects.toThrow('segmentation request timed out');
+    await vi.advanceTimersByTimeAsync(51);
+
+    await assertion;
+    expect(abort).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
 });

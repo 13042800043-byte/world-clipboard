@@ -41,7 +41,7 @@ declare const wx: {
     formData: Record<string, string>;
     success(result: { statusCode: number; data: string }): void;
     fail(error: unknown): void;
-  }): unknown;
+  }): { abort?(): void };
   createVKSession(options: {
     track: { plane: { mode: number }; hand: { mode: number } };
     version: string;

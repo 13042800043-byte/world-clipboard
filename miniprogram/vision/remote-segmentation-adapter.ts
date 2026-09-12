@@ -11,19 +11,34 @@ type UploadOptions = {
   success(result: UploadResult): void;
   fail(error: unknown): void;
 };
-type UploadFile = (options: UploadOptions) => unknown;
+type UploadTask = { abort?(): void };
+type UploadFile = (options: UploadOptions) => UploadTask | void;
 
 export class RemoteSegmentationAdapter implements Segmenter {
   constructor(
     private readonly baseUrl: string,
     private readonly uploadFile: UploadFile = (options) => wx.uploadFile(options),
+    private readonly timeoutMs = 8000,
   ) {}
 
   async segment(input: SegmentationInput): Promise<ClipboardItem> {
     if (input.mode === 'color') throw new Error('color capture is handled on device');
 
     const response = await new Promise<ReturnType<typeof parseSegmentResponse>>((resolve, reject) => {
-      this.uploadFile({
+      let task: UploadTask | void;
+      let settled = false;
+      const finish = (callback: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        callback();
+      };
+      const timeout = setTimeout(() => {
+        if (task) task.abort?.();
+        finish(() => reject(new Error('segmentation request timed out')));
+      }, this.timeoutMs);
+
+      task = this.uploadFile({
         url: segmentApiUrl(this.baseUrl),
         filePath: input.image,
         name: 'image',
@@ -34,16 +49,17 @@ export class RemoteSegmentationAdapter implements Segmenter {
         },
         success(result) {
           if (result.statusCode < 200 || result.statusCode >= 300) {
-            reject(new Error(`segmentation request failed (${result.statusCode})`));
+            finish(() => reject(new Error(`segmentation request failed (${result.statusCode})`)));
             return;
           }
           try {
-            resolve(parseSegmentResponse(JSON.parse(result.data) as unknown));
+            const parsed = parseSegmentResponse(JSON.parse(result.data) as unknown);
+            finish(() => resolve(parsed));
           } catch (error) {
-            reject(error);
+            finish(() => reject(error));
           }
         },
-        fail: reject,
+        fail: (error) => finish(() => reject(error)),
       });
     });
 
