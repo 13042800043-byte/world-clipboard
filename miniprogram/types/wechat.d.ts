@@ -14,6 +14,11 @@ declare const wx: {
       stop(): void;
     };
   };
+  createVKSession(options: {
+    track: { plane: { mode: number }; hand: { mode: number } };
+    version: string;
+    gl: unknown;
+  }): any;
 };
 
 interface MiniProgramTouch {
