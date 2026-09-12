@@ -14,17 +14,18 @@
 ```text
 Camera
 → 选择 物体 / 颜色 / 轮廓
-→ 真机中用拇指与食指捏合（开发者工具可按住模拟）
-→ 移动手势或触点（Drag）
-→ 松开捏合或触点（Release / Copy）
+→ 手掌朝向摄像头，将光标放进物体内部
+→ 拇指与食指指尖对捏并保持约 0.15 秒（开发者工具可按住模拟）
+→ 保持捏合并移动整只手（Drag）
+→ 张开两指或松开触点（Release / Copy）
 → Clipboard
 → 拼豆模板
 → 32 × 32 拼豆图纸与色号统计
 ```
 
-Camera 页右上角的 `MOCK / CAMERA` 可以切换演示背景。开发者工具没有摄像头画面或真机权限尚未配置时，使用 Mock 背景仍可走通全部交互。
+Camera 页右上角的 `MOCK / CAMERA` 可以切换交互调试背景。Mock 只验证光标与 Grab 动效，不再生成虚构动物或伪造抠图结果。
 
-真实抠图需要先启动本仓库自带的 Python 服务；服务不可达或超过 8 秒时，小程序会自动回退到 Mock，不会中断演示。
+真实抠图需要先启动本仓库自带的 Python 服务；服务不可达或超过 8 秒时，相机页会明确提示失败，不再用假图片伪装成功。
 
 ## 启动视觉后端
 
@@ -45,6 +46,8 @@ python -m venv .venv
 
 微信开发者工具中直接使用默认地址即可。真机调试时，把 `miniprogram/config.ts` 的 `VISION_API_BASE_URL` 改为电脑可被手机访问的局域网或 HTTPS 地址；两台设备需要处于同一网络。后端只在内存中处理上传图片，不会写入磁盘。该服务目前没有认证，只适合本机或受信任局域网演示，不应直接暴露到公网。
 
+提高真实抠图成功率：让物体与背景有明显颜色或亮度差；物体完整进入画面；捏合光标落在物体内部而不是边缘；避免手指遮住目标主体。当前 OpenCV 版本会把光标位置标记为确定前景，再从该点向外提取连通对象。
+
 ## 当前完成
 
 - 原生 TypeScript / WXML / WXSS 工程与自定义双页面导航
@@ -57,9 +60,9 @@ python -m venv .venv
 - 统一 `ClipboardItem` 数据模型和内存 Store
 - VisionKit Hand Tracker（不支持时自动降级）
 - Python / FastAPI / OpenCV 点提示分割服务，返回透明 PNG、Mask 与归一化 bbox
-- Camera / VisionKit 当前帧文件捕获、上传、响应校验与 8 秒自动 Mock 回退
+- Camera / VisionKit 当前帧文件捕获、上传、响应校验与明确错误提示
 - Clipboard 内容预览与五个 Paste Plugin 入口
-- 独立 `/plugins/perler` Mock 插件，输出 32 × 32 网格和材料统计
+- 独立 `/plugins/perler` 真实插件，从透明 PNG 生成 32 × 32 网格和材料统计
 
 ## Mock 开关
 
@@ -69,10 +72,9 @@ python -m venv .venv
 DEBUG_MODE
 USE_MOCK_HAND_TRACKING
 USE_MOCK_SEGMENTATION
-USE_MOCK_PERLER
 ```
 
-这些开关让 UI 与视觉模型解耦。当前 Hand Tracking 与 Segmentation 的 Mock 开关默认关闭：真机优先使用 VisionKit，分割优先请求本机后端；后端不可达时仍自动回退 Mock。拼豆目前保留 Mock，保证演示稳定。
+这些开关让 UI 与视觉模型解耦。当前 Hand Tracking 与 Segmentation 的 Mock 开关默认关闭：真机优先使用 VisionKit，分割请求本机后端。拼豆不再提供固定 Mock 图案，只接受真实透明抠图。
 
 ## 本地质量检查
 
@@ -108,7 +110,8 @@ miniprogram/
 
 backend/
 ├── app/main.py          # FastAPI 上传接口与安全边界
-└── app/segmentation.py  # OpenCV 点提示 GrabCut 管线
+├── app/segmentation.py  # OpenCV 点提示 GrabCut 管线
+└── app/perler.py        # 透明裁切、采样、色卡量化与统计
 ```
 
 ## 下一阶段
@@ -116,9 +119,9 @@ backend/
 1. 在目标 iOS / Android 真机上校准 VisionKit 点位顺序、Pinch 阈值与坐标映射。
 2. 用真机样本校准 OpenCV GrabCut，并评估替换为 SAM / RMBG 的同接口 Adapter。
 3. 校准预览裁切、旋转、镜像和截图坐标映射。
-4. 把拼豆插件从 Mock 图案升级为透明 PNG 的裁切、量化、色卡映射与网格生成。
+4. 根据比赛现场材料替换或扩充拼豆实体色卡。
 
-当前已接入真实 VisionKit 手部追踪与可运行的 OpenCV 分割后端，同时保留全链路 Mock 降级。第一阶段继续以 SEE → PINCH → GRAB → COPY → CREATE 的可靠闭环为准。
+当前已接入真实 VisionKit 手部追踪、OpenCV 分割后端与真实拼豆生成。Mock 仅用于手势 UI 调试，不再伪造内容。第一阶段继续以 SEE → PINCH → GRAB → COPY → CREATE 的可靠闭环为准。
 
 ## 开源参考
 
