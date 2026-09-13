@@ -12,6 +12,59 @@ export function handAt(distance: number, x = .5, palm = .4): VisionKitHandAnchor
 }
 
 describe('round 2 predictable gesture timing', () => {
+  it('preserves the held session and cursor when photo resume gives the hand a new native id', () => {
+    const adapter = new VisionKitHandGestureAdapter({ ...GESTURE_PROFILES.stable, useOneEuroFilter: false });
+    const initial = { ...handAt(.2), id: 1 };
+    adapter.update(initial, false, 0);
+    const grab = adapter.update(initial, false, 40);
+    adapter.resumeAfterCapture(1000);
+    const resumed = adapter.update({ ...handAt(.2, .55), id: 2 }, false, 1001);
+    expect(resumed.pinch).toBe('PINCH_HOLD');
+    expect(resumed.gestureSessionId).toBe(grab.gestureSessionId);
+    expect(resumed.hand.cursor).toEqual(grab.hand.cursor);
+    expect(adapter.update({ ...handAt(.2, .6), id: 2 }, false, 1041).hand.cursor.x).toBeCloseTo(.55);
+  });
+
+  it('can disable grace without resetting every good observation', () => {
+    const adapter = new VisionKitHandGestureAdapter({ ...GESTURE_PROFILES.stable, useTrackingGrace: false });
+    adapter.update(handAt(.2), false, 0);
+    expect(adapter.update(handAt(.2), false, 40).pinch).toBe('PINCH_START');
+    expect(adapter.update(undefined, false, 41).tracking).toBe('lost');
+  });
+
+  it('retains the rejected confidence for diagnostics, including before the first valid hand', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    const confidence = Array(21).fill(.9); confidence[8] = .1;
+    const result = adapter.update({ ...handAt(.2), score: .95, confidence }, false, 0);
+    expect(result.confidence).toBe(.1);
+    expect(result.qualityReason).toBe('LOW_CONFIDENCE');
+    expect(result.pinch).toBeUndefined();
+  });
+
+  it('ignores duplicate and older callbacks but accepts later stationary observations', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    const anchor = { ...handAt(.2), id: 1, detectId: 1 };
+    adapter.update(anchor, false, 10);
+    expect(adapter.update(anchor, false, 11).accepted).toBe(false);
+    expect(adapter.update(handAt(.8, .8), false, 9).accepted).toBe(false);
+    expect(adapter.update(anchor, false, 50).pinch).toBe('PINCH_START');
+  });
+
+  it('blocks new edge pinches but allows an already held gesture to release at the edge', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    adapter.update(handAt(.2), false, 0);
+    adapter.update(handAt(.2), false, 40);
+    adapter.update(handAt(.8, .99), false, 80);
+    expect(adapter.update(handAt(.8, .99), false, 120).pinch).toBe('PINCH_END');
+  });
+
+  it('requires a fresh candidate after missing observations', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    adapter.update(handAt(.2), false, 0);
+    adapter.update(undefined, false, 50);
+    expect(adapter.update(handAt(.2), false, 100).pinch).toBeUndefined();
+    expect(adapter.update(handAt(.2), false, 140).pinch).toBe('PINCH_START');
+  });
   it('does not confirm two callbacks arriving just 1ms apart', () => {
     const adapter = new VisionKitHandGestureAdapter();
     adapter.update(handAt(.2), false, 0);

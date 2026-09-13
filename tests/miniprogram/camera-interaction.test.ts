@@ -110,7 +110,7 @@ describe('camera Grab snapshot lifecycle', () => {
     page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand()
     expect(page.data.isGrabbed).toBe(true)
-    await vi.advanceTimersByTimeAsync(200)
+    await vi.advanceTimersByTimeAsync(280) // Grab now has 300ms tracking grace.
     expect(page.data.isGrabbed).toBe(false)
     expect(mocks.segment).not.toHaveBeenCalled()
     page.onVisionHand(anchor(true))

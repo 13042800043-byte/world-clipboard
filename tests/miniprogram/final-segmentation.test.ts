@@ -28,5 +28,6 @@ it('preserves an intentional camera pause but still cancels genuine tracking los
   expect(adapter.update(anchor(true), false, 180).pinch).toBe('PINCH_START')
   adapter.resumeAfterCapture(1000)
   expect(adapter.update(anchor(true), false, 1001).pinch).toBe('PINCH_HOLD')
-  expect(adapter.update(undefined, false, 1300).tracking).toBe('lost')
+  expect(adapter.update(undefined, false, 1300).tracking).toBe('grace')
+  expect(adapter.update(undefined, false, 1302).tracking).toBe('lost')
 })

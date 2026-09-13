@@ -60,10 +60,13 @@
 
   <view wx:if="{{coordinateDebug}}" class="coordinate-debug">
     <view class="coordinate-debug__raw" style="left: {{rawCursorX * 100}}%; top: {{rawCursorY * 100}}%;"></view>
+    <view class="coordinate-debug__filtered" style="left: {{filteredCursorX * 100}}%; top: {{filteredCursorY * 100}}%;"></view>
     <view wx:if="{{isGrabbed || isCopying}}" class="coordinate-debug__lock" style="left: {{selectionX * 100}}%; top: {{selectionY * 100}}%;">+</view>
     <view class="coordinate-debug__panel" style="top: {{navHeight + 12}}px;">
-      <text>RAW 橙圈 · FILTER 白点 · LOCK 十字</text>
+      <text>RAW 橙圈 · FILTER 绿圈 · LOCK 十字</text>
       <text>{{debugGesture}}</text>
+      <text>{{debugTelemetry}}</text>
+      <button size="mini" class="gesture-export" catchtouchstart="onDebugTouch" catchtouchmove="onDebugTouch" catchtouchend="onDebugTouch" catchtap="onExportGestureTelemetry">输出最近 10 秒</button>
       <text>{{debugPoint}}</text>
       <view wx:if="{{debugFrame}}" class="coordinate-debug__frame" style="height: {{180 * debugFrameHeight / debugFrameWidth}}rpx;">
         <image src="{{debugFrame}}" mode="scaleToFill" />

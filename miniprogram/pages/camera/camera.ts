@@ -3,7 +3,7 @@ import type { CaptureMode } from '../../clipboard/clipboard-types'
 import { APP_CONFIG } from '../../config'
 import { getDeviceLayout } from '../../utils/device-layout'
 import { SpatialController } from '../../interaction/spatial-controller'
-import { shouldRenderSpatialFrame } from '../../interaction/spatial-render-scheduler'
+import { shouldRenderSpatialFrame, advanceSpatialRenderClock } from '../../interaction/spatial-render-scheduler'
 import {
   WeChatCameraFrameSource,
   type CameraFrame,
@@ -17,6 +17,8 @@ import { MockHandTracker } from '../../vision/hand-tracker'
 import type { NormalizedPoint } from '../../vision/hand-tracker'
 import { CoordinateTransform, orientedDimensions } from '../../vision/coordinate-transform'
 import { VISION_CONFIG } from '../../vision/vision-config'
+import { GESTURE_PROFILE } from '../../vision/gesture-config'
+import { GestureTelemetry, type GestureSample } from '../../vision/gesture-telemetry'
 import { CUTOUT_CONFIG } from '../../vision/cutout-config'
 import { FinalCaptureController, type FinalCaptureInput, type FinalPhoto } from '../../vision/final-capture-controller'
 import { FinalSegmentationController } from '../../vision/final-segmentation-controller'
@@ -76,6 +78,8 @@ let hoverSelection: HoverSelectionController | undefined
 let motionSample: { point: NormalizedPoint; wrist?: NormalizedPoint; at: number } | undefined
 let cursorVelocity = 0
 let handVelocity = 0
+const gestureTelemetry = new GestureTelemetry(APP_CONFIG.DEBUG_MODE && VISION_CONFIG.showCoordinateDebug)
+let lastDebugRenderAt = -Infinity
 
 Page({
   data: {
@@ -92,6 +96,9 @@ Page({
     selectionX: 0.5,
     selectionY: 0.56,
     debugGesture: '',
+    debugTelemetry: '',
+    filteredCursorX: 0.5,
+    filteredCursorY: 0.56,
     debugPoint: '',
     debugFrame: '',
     debugFrameWidth: 1,
@@ -128,6 +135,7 @@ Page({
       this.setData({ useVisionKit: true, cameraReady: false })
     }
     lastSpatialRenderAt = 0
+    lastDebugRenderAt = -Infinity
     this.setData({
       cursorX: 0.5,
       cursorY: 0.56,
@@ -140,6 +148,7 @@ Page({
       status: this.data.useVisionKit ? '将手放入画面 · 食指对准目标' : '按住目标并拖动',
       debugFrame: '',
       debugGesture: '',
+      debugTelemetry: '',
       debugPoint: '',
     })
     if (this.data.useVisionKit && !this.data.useMockScene) {
@@ -282,7 +291,8 @@ Page({
           const renderer = createVisionKitCameraRenderer(canvas)
 
           visionSession.start(canvas, renderer, {
-            onHand: (anchor) => this.onVisionHand(anchor),
+            onHand: (anchor, observation) => this.onVisionHand(anchor, observation),
+            onFrame: this.data.coordinateDebug ? (at, timestampNs) => gestureTelemetry.recordCameraFrame(at, timestampNs) : undefined,
             onReady: () => {
               if (startGeneration !== visionStartGeneration || !pageVisible) return
               if (visionStartTimeout) clearTimeout(visionStartTimeout)
@@ -353,10 +363,10 @@ Page({
     })
   },
 
-  onVisionHand(anchor?: VisionKitHandAnchor) {
+  onVisionHand(anchor?: VisionKitHandAnchor, observation?: { receivedAt: number }) {
     if (!pageVisible || touchActive || this.data.isCopying || finalCapturePending) return
     const windowInfo = wx.getWindowInfo()
-    const now = Date.now()
+    const now = observation?.receivedAt ?? Date.now()
     if (resumeOnNextHand) {
       if (!anchor || anchor.points.length < 21 || !anchor.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) return
       resumeOnNextHand = false
@@ -365,23 +375,44 @@ Page({
       visionGestureAdapter.resumeAfterCapture(now - 1)
     }
     const result = visionGestureAdapter.update(anchor, false, now, windowInfo.windowWidth / windowInfo.windowHeight)
-    if (result.tracking === 'grace') {
-      this.setData({ handStatus: '跟踪短暂中断 · 保持抓取', debugGesture: 'TRACKING_LOST · grace' })
-      return
+    const sample = gestureTelemetry.record(result, now, Date.now(), spatialController.isDragging() ? spatialController.getDragDistance(result.hand.cursor) : 0)
+    if (this.data.coordinateDebug && now - lastDebugRenderAt >= VISION_CONFIG.debugUpdateIntervalMs) {
+      lastDebugRenderAt = now
+      const metrics = gestureTelemetry.summary(now)
+      const number = (value?: number | null) => value === undefined || value === null || !Number.isFinite(value) ? 'N/A' : value.toFixed(2)
+      const pointText = (point?: NormalizedPoint) => point ? `${point.x.toFixed(3)},${point.y.toFixed(3)}` : 'N/A'
+      this.setData({ debugGesture: `${result.phase} · ${result.trackingQuality} · ${result.qualityReason}`,
+        debugTelemetry: `${GESTURE_PROFILE} · FPS C/H/U ${number(metrics.cameraFps)}/${number(metrics.handFps)}/${number(metrics.uiFps)}\n`
+          + `confidence ${number(result.confidence)} · cursor V ${number(result.cursorVelocity)}/s\n`
+          + `RAW ${pointText(result.rawCursor)} · FILTER ${pointText(result.filteredCursor)}\n`
+          + `palm ${number(result.hand.palmScale)} → ${number(result.filteredPalmScale)}\n`
+          + `pinch raw ${number(result.hand.rawPinchDistance)} / norm ${number(result.hand.pinchDistance)} · V ${number(result.pinchVelocity)}/s\n`
+          + `candidate ${result.candidateDurationMs}ms · lost ${result.lostDurationMs}ms · session ${result.gestureSessionId}\n`
+          + `LOCK ${pointText(result.selectionPoint)} · drag ${number(sample?.dragDistance)}\n`
+          + `callback→UI avg/P95 ${number(metrics.callbackToUiMs.average)}/${number(metrics.callbackToUiMs.p95)}ms · camera→hand N/A` })
     }
     if (handExpiryTimer) clearTimeout(handExpiryTimer)
     handExpiryTimer = undefined
+    if (result.tracking === 'grace') {
+      handExpiryTimer = setTimeout(() => this.onVisionHand(), result.graceRemainingMs + 1)
+      if (this.data.handStatus !== '跟踪短暂中断 · 保持抓取') this.setData({ handStatus: '跟踪短暂中断 · 保持抓取' })
+      return
+    }
     if (result.tracking === 'lost' || result.phase === 'REARMING') {
       captureGeneration += 1
       spatialController.reset()
       grabbedFrame = undefined
       hoverSelection?.reset()
-      this.setData({ candidateOutline: '' })
-      this.setData({ isGrabbed: false, handDetected: result.tracking !== 'lost', gesture: 'IDLE', handStatus: result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '请将手放入画面', status: result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '将手放入画面 · 食指对准目标', debugGesture: result.phase })
+      const handStatus = result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '请将手放入画面'
+      if (this.data.gesture !== 'IDLE' || this.data.isGrabbed || this.data.handStatus !== handStatus || this.data.candidateOutline) {
+        this.setData({ candidateOutline: '', isGrabbed: false, handDetected: result.tracking !== 'lost', gesture: 'IDLE', handStatus,
+          status: result.phase === 'REARMING' ? handStatus : '将手放入画面 · 食指对准目标' })
+      }
       if (result.tracking === 'lost') return
     }
-    handExpiryTimer = setTimeout(() => this.onVisionHand(), VISION_CONFIG.trackingLostGraceMs + 1)
+    handExpiryTimer = setTimeout(() => this.onVisionHand(), result.graceRemainingMs + 1)
     if (result.phase === 'REARMING') return
+    if (!result.accepted) return
     if (!this.data.handDetected) this.setData({ handDetected: true })
     const point = result.hand.cursor
     lastLandmarks = result.hand.landmarks
@@ -399,18 +430,20 @@ Page({
       1000 / APP_CONFIG.SPATIAL_UI_FPS,
       forceRender,
     )
-    const renderDebug = {
+    const renderDebug = this.data.coordinateDebug ? {
       rawCursorX: result.rawCursor?.x ?? point.x,
       rawCursorY: result.rawCursor?.y ?? point.y,
-      debugGesture: `${result.phase} · d=${result.hand.pinchDistance.toFixed(3)} · close ${result.closedFrames}/${VISION_CONFIG.pinchStartFrames} · open ${result.openFrames}/${VISION_CONFIG.pinchReleaseFrames}`,
-    }
-    if (shouldRender) lastSpatialRenderAt = now
+      filteredCursorX: result.filteredCursor?.x ?? point.x,
+      filteredCursorY: result.filteredCursor?.y ?? point.y,
+    } : {}
+    if (shouldRender) lastSpatialRenderAt = VISION_CONFIG.useFrameCadenceCompensation
+      ? advanceSpatialRenderClock(lastSpatialRenderAt, now, 1000 / APP_CONFIG.SPATIAL_UI_FPS, forceRender) : now
 
     if (result.pinch === 'PINCH_START') {
       const selection = result.selectionPoint ?? point
-      const next = spatialController.start(point, selection)
+      const next = spatialController.start(point, selection, result.gestureSessionId)
       this.beginSelectionCapture(selection)
-      this.setData({
+      this.renderGestureData({
         ...renderDebug,
         cursorX: point.x,
         cursorY: point.y,
@@ -421,26 +454,27 @@ Page({
         selectionX: selection.x,
         selectionY: selection.y,
         status: '已抓住 · 移动后松开',
-      })
+      }, sample)
     } else if (result.pinch === 'PINCH_HOLD' && spatialController.isDragging()) {
       const next = spatialController.move(point)
+      const dragPoint = spatialController.getCursor()
       if (shouldRender) {
-        this.setData({
+        this.renderGestureData({
           ...renderDebug,
-          cursorX: point.x,
-          cursorY: point.y,
-          objectX: point.x,
-          objectY: point.y,
+          cursorX: dragPoint.x,
+          cursorY: dragPoint.y,
+          objectX: dragPoint.x,
+          objectY: dragPoint.y,
           gesture: next.gesture,
           handStatus: '已检测到手部',
-          status: '拖动中 · 张开手指即复制',
-        })
+          status: next.gesture === 'DRAGGING' ? '拖动中 · 张开手指即复制' : '已抓住 · 移动后松开',
+        }, sample)
       }
     } else if (result.pinch === 'PINCH_END' && spatialController.isDragging()) {
       this.finishGrab()
     } else if (shouldRender) {
       this.updateHoverSelection(point)
-      this.setData({
+      this.renderGestureData({
         ...renderDebug,
         cursorX: point.x,
         cursorY: point.y,
@@ -449,8 +483,22 @@ Page({
         handStatus: '已检测到手部',
         gesture: 'HOVERING',
         status: '拇指与食指对捏并保持',
-      })
+      }, sample)
     }
+  },
+
+  renderGestureData(update: Record<string, unknown>, sample?: GestureSample) {
+    if (sample) this.setData(update, () => gestureTelemetry.markUiComplete(sample, Date.now()))
+    else this.setData(update)
+  },
+
+  onDebugTouch() {},
+
+  onExportGestureTelemetry() {
+    if (!this.data.coordinateDebug) return
+    console.info('WORLD_CLIPBOARD_GESTURE', JSON.stringify({ profile: GESTURE_PROFILE,
+      config: VISION_CONFIG, summary: gestureTelemetry.summary(), samples: gestureTelemetry.snapshot() }))
+    wx.showToast({ title: '最近10秒手势数据已输出控制台', icon: 'none' })
   },
 
   async onTouchStart(event: MiniProgramTouchEvent) {

@@ -111,6 +111,7 @@ export class VisionKitHandGestureAdapter {
   private accepted = false;
   private lostDurationMs = 0;
   private holdOrigin?: NormalizedPoint;
+  private resumeCursor?: NormalizedPoint;
   private dragActive = false;
   private confirmationMs = 0;
   private lastSeenAt?: number;
@@ -154,7 +155,9 @@ export class VisionKitHandGestureAdapter {
       }
       const wasPinching = this.pinchTracker.isPinching || this.needsRearm;
       const lostMs = this.lostDurationMs;
+      const confidence = this.confidence;
       this.reset();
+      this.confidence = confidence;
       this.lastProcessedAt = now;
       this.lostDurationMs = lostMs;
       this.needsRearm = wasPinching;
@@ -162,11 +165,13 @@ export class VisionKitHandGestureAdapter {
     }
     // Reacquisition after a long callback gap must not resurrect a stale pinch.
     const changedHand = anchor?.id !== undefined && this.handId !== undefined && anchor.id !== this.handId;
-    if (changedHand || (this.lastSeenAt !== undefined && now - this.lastSeenAt >= this.graceMs())) {
+    if (changedHand || (this.lastSeenAt !== undefined && now - this.lastSeenAt >=
+        (this.options.useTrackingGrace ? this.graceMs() : this.options.trackingLostGraceMs))) {
       const wasPinching = this.pinchTracker.isPinching || this.needsRearm;
       this.reset();
       this.needsRearm = wasPinching;
     }
+    this.confidence = readConfidence(anchor);
     const dt = this.lastSeenAt === undefined ? 0 : (now - this.lastSeenAt) / 1000;
     this.accepted = true;
     this.lastProcessedAt = now;
@@ -186,6 +191,13 @@ export class VisionKitHandGestureAdapter {
     this.cursorVelocity = dt && this.filteredCursor ? distance(cursor, this.filteredCursor, aspectRatio) / dt : 0;
     if (this.options.useCursorDeadZone && this.filteredCursor && distance(cursor, this.filteredCursor, aspectRatio) < this.options.cursorDeadZone) cursor = this.filteredCursor;
     this.filteredCursor = cursor;
+    // Native tracking restarts after taking a photo. Rebase the drag origin
+    // once so the first new observation cannot move an already locked object.
+    if (this.resumeCursor && this.selectionPoint && this.pinchTracker.isPinching) {
+      this.holdOrigin = { x: cursor.x - (this.resumeCursor.x - this.selectionPoint.x),
+        y: cursor.y - (this.resumeCursor.y - this.selectionPoint.y) };
+    }
+    this.resumeCursor = undefined;
     const filteredHand = {
       ...hand,
       cursor,
@@ -274,7 +286,8 @@ export class VisionKitHandGestureAdapter {
     this.filterX.reset();
     this.filterY.reset();
     this.palmFilter.reset();
-    this.lastDetectId = undefined;
+    this.lastDetectId = this.handId = undefined;
+    if (this.options.useContinuousCursor && this.pinchTracker.isPinching && this.lastHand) this.resumeCursor = { ...this.lastHand.cursor };
     this.clearCandidates();
   }
 
@@ -292,6 +305,7 @@ export class VisionKitHandGestureAdapter {
     this.cursorVelocity = this.pinchVelocity = this.lostDurationMs = 0;
     this.accepted = false;
     this.holdOrigin = undefined;
+    this.resumeCursor = undefined;
     this.dragActive = false;
     this.confirmationMs = 0;
     this.lastHand = undefined;

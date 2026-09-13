@@ -37,7 +37,7 @@ export function updatePinchTracker(
 ): { tracker: PinchTracker; event?: PinchPhase } {
   if (now !== undefined && (!Number.isFinite(now) || (tracker.lastAt !== undefined && now <= tracker.lastAt))) return { tracker };
   const timed = options.useTimeBasedDebounce && now !== undefined;
-  if (timed && tracker.lastAt !== undefined && now - tracker.lastAt > (options.maxObservationGapMs ?? 120)) {
+  if (timed && tracker.lastAt !== undefined && now - tracker.lastAt > (options.maxObservationGapMs ?? VISION_CONFIG.maxObservationGapMs)) {
     tracker = { ...tracker, closedFrames: 0, openFrames: 0, candidateSince: undefined };
   }
   tracker = { ...tracker, lastAt: now };
@@ -48,7 +48,7 @@ export function updatePinchTracker(
     if (now !== undefined && now < (tracker.cooldownUntil ?? -Infinity)) return { tracker };
     const closedFrames = normalizedDistance < options.pinchStartThreshold ? tracker.closedFrames + 1 : 0;
     const candidateSince = closedFrames ? tracker.candidateSince ?? now : undefined;
-    if (closedFrames >= options.pinchStartFrames && (!timed || now - candidateSince! >= (options.pinchConfirmMs ?? 30))) {
+    if (closedFrames >= options.pinchStartFrames && (!timed || now - candidateSince! >= (options.pinchConfirmMs ?? VISION_CONFIG.pinchConfirmMs))) {
       return {
         tracker: { ...tracker, isPinching: true, closedFrames: 0, openFrames: 0, candidateSince: undefined, sessionId: tracker.sessionId + 1 },
         event: 'PINCH_START',
@@ -59,9 +59,9 @@ export function updatePinchTracker(
 
   const openFrames = normalizedDistance > options.pinchReleaseThreshold ? tracker.openFrames + 1 : 0;
   const candidateSince = openFrames ? tracker.candidateSince ?? now : undefined;
-  if (openFrames >= options.pinchReleaseFrames && (!timed || now - candidateSince! >= (options.releaseConfirmMs ?? 30))) {
+  if (openFrames >= options.pinchReleaseFrames && (!timed || now - candidateSince! >= (options.releaseConfirmMs ?? VISION_CONFIG.releaseConfirmMs))) {
     return { tracker: { ...createPinchTracker(tracker.sessionId), lastAt: now,
-      cooldownUntil: now !== undefined && options.useRearmCooldown ? now + (options.rearmCooldownMs ?? 80) : undefined }, event: 'PINCH_END' };
+      cooldownUntil: now !== undefined && options.useRearmCooldown ? now + (options.rearmCooldownMs ?? VISION_CONFIG.rearmCooldownMs) : undefined }, event: 'PINCH_END' };
   }
   return {
     tracker: { ...tracker, closedFrames: 0, openFrames, candidateSince },

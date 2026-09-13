@@ -6,6 +6,21 @@ import {
 import type { VisionKitHandAnchor } from '../../miniprogram/vision/visionkit-hand-tracker';
 
 describe('VisionKit hand session', () => {
+  it('preserves target camera cadence and forwards native timestamps without inventing anchor timestamps', () => {
+    let next: (at: number) => void = () => {};
+    let timestamp = 0;
+    const native: VisionKitSessionLike = { start: callback => callback(), stop() {}, on() {},
+      requestAnimationFrame: callback => { next = callback; return 1; },
+      getVKFrame: () => ({ timestamp: ++timestamp * 1_000_000 }) };
+    const render = vi.fn(), onFrame = vi.fn();
+    const session = new VisionKitHandSession(() => native, 24);
+    session.start({ width: 1, height: 1 }, { render, dispose() {} }, { onHand() {}, onReady() {}, onError() {}, onFrame });
+    for (let i = 1; i <= 600; i++) next(i * 1000 / 60);
+    expect(render.mock.calls.length).toBeGreaterThanOrEqual(239);
+    expect(render.mock.calls.length).toBeLessThanOrEqual(240);
+    expect(onFrame).toHaveBeenLastCalledWith(expect.any(Number), timestamp * 1_000_000);
+    session.stop();
+  });
   it('does not forward old native callbacks into a restarted photo session', () => {
     const generations: Array<Map<string, (value: VisionKitHandAnchor[]) => void>> = [];
     const session = new VisionKitHandSession(() => {
@@ -59,7 +74,7 @@ describe('VisionKit hand session', () => {
 
     const anchor = createAnchor();
     listeners.get('updateAnchors')?.([anchor]);
-    expect(onHand).toHaveBeenCalledWith(anchor);
+    expect(onHand).toHaveBeenCalledWith(anchor, { receivedAt: expect.any(Number) });
 
     animationFrame?.(100);
     expect(render).toHaveBeenCalledWith(frame);

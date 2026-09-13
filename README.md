@@ -25,7 +25,9 @@ Camera
 → 新插件可放大查看、保存 PNG
 ```
 
-默认使用干净的演示界面，仍可按住屏幕模拟 Grab / Drag / Release。需要调试背景时，把 `miniprogram/config.ts` 的 `SHOW_DEBUG_CONTROLS` 改为 `true`，显示 `MOCK / CAMERA` 切换按钮；需要 RAW / FILTER / LOCK 面板时，另将 `miniprogram/vision/vision-config.ts` 的 `showCoordinateDebug` 改为 `true`。Mock 只验证光标与 Grab 动效，不生成虚构动物或伪造抠图结果。
+默认使用干净的演示界面，仍可按住屏幕模拟 Grab / Drag / Release。需要调试背景时，把 `miniprogram/config.ts` 的 `SHOW_DEBUG_CONTROLS` 改为 `true`，显示 `MOCK / CAMERA` 切换按钮；需要 RAW / FILTER / LOCK 面板与最近 10 秒遥测时，将 `miniprogram/vision/gesture-config.ts` 的 `GESTURE_PROFILE` 改为 `'debug'`，保持 `DEBUG_MODE=true` 并重新编译。默认 `'stable'`，保留 `'current'` 对照与 `'responsive'` 实验档。Mock 只验证光标与 Grab 动效，不生成虚构动物或伪造抠图结果。
+
+第二轮手势优化：掌宽时间滤波、时间+观测数确认、短时丢失保护、闭合前锁点与拖动分离、拍照恢复会话保护、刷新节奏及 Debug 耗时记录。分析、参数、合成对比结果和十项真机验收见 [Gesture Round 2](docs/gesture-round2.md)。本轮不修改 Segmentation / Final Cutout；合成测试耗时不代表手机端到端延迟。
 
 物体 / 轮廓的真实抠图需要先启动本仓库自带的 Python 服务；服务不可达或超过 8 秒时，相机页会明确提示失败，不再用假图片伪装成功。**颜色抓取在小程序端读取照片，不需要分割后端。**
 

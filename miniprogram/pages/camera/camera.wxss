@@ -11,6 +11,8 @@
 
 .coordinate-debug { position: absolute; inset: 0; z-index: 19; pointer-events: none; }
 .coordinate-debug__raw { position: absolute; width: 18rpx; height: 18rpx; border: 2rpx solid #e9b67d; border-radius: 50%; transform: translate(-50%, -50%); }
+.coordinate-debug__filtered { position: absolute; width: 26rpx; height: 26rpx; border: 2rpx solid #9ee5b7; border-radius: 50%; transform: translate(-50%, -50%); }
+.gesture-export { pointer-events: auto; margin: 8rpx 0 0; padding: 0 12rpx; width: 210rpx; color: #fff; background: rgba(255,255,255,.15); font-size: 19rpx; line-height: 44rpx; }
 .coordinate-debug__lock, .coordinate-debug__prompt { position: absolute; color: #e9b67d; font-size: 32rpx; font-weight: 700; line-height: 1; transform: translate(-50%, -50%); text-shadow: 0 1rpx 4rpx #111; }
 .coordinate-debug__panel { position: absolute; top: calc(env(safe-area-inset-top) + 126rpx); left: 24rpx; max-width: 650rpx; padding: 12rpx; border-radius: 16rpx; background: rgba(0, 0, 0, .42); }
 .coordinate-debug__panel text { display: block; font-size: 17rpx; line-height: 1.6; color: rgba(255, 255, 255, .8); }
@@ -86,12 +88,12 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
   transform-origin: center;
-  transition: transform 150ms ease, filter 150ms ease, opacity 480ms ease, left 560ms cubic-bezier(.2,.8,.2,1), top 560ms cubic-bezier(.2,.8,.2,1);
+  transition: transform 150ms ease, filter 150ms ease, opacity 480ms ease;
   filter: drop-shadow(0 8rpx 14rpx rgba(0, 0, 0, 0.18));
 }
 
 .captured--grabbed { transform: translate(-50%, -50%) scale(0.94); filter: drop-shadow(0 0 16rpx rgba(255, 255, 255, 0.95)); transition: transform 150ms ease, filter 150ms ease; }
-.captured--copying { left: 90% !important; top: 12% !important; opacity: 0.08; transform: translate(-50%, -50%) scale(0.14) rotate(8deg); }
+.captured--copying { left: 90% !important; top: 12% !important; opacity: 0.08; transform: translate(-50%, -50%) scale(0.14) rotate(8deg); transition: left 560ms cubic-bezier(.2,.8,.2,1), top 560ms cubic-bezier(.2,.8,.2,1), opacity 480ms ease, transform 560ms ease; }
 
 .selection-reticle { position: absolute; inset: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1rpx rgba(255, 255, 255, 0.22); }
 .selection-reticle--color { border-radius: 50%; background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(2rpx); }

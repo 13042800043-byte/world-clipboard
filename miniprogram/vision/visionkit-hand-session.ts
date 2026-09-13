@@ -1,4 +1,5 @@
 import type { VisionKitHandAnchor } from './visionkit-hand-tracker';
+import { GESTURE_CONFIG } from './gesture-config';
 
 export type VisionKitFrame = unknown;
 
@@ -30,7 +31,8 @@ export type VisionKitSessionOptions = {
 };
 
 export type VisionKitSessionHandlers = {
-  onHand(anchor?: VisionKitHandAnchor): void;
+  onHand(anchor?: VisionKitHandAnchor, observation?: { receivedAt: number }): void;
+  onFrame?(receivedAt: number, cameraTimestampNs?: number): void;
   onReady(): void;
   onError(error: unknown): void;
 };
@@ -78,7 +80,7 @@ export class VisionKitHandSession {
       session.on('addAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers, generation));
       session.on('updateAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers, generation));
       session.on('removeAnchors', () => {
-        if (this.running && generation === this.generation) handlers.onHand(undefined);
+        if (this.running && generation === this.generation) handlers.onHand(undefined, { receivedAt: Date.now() });
       });
 
       session.start((error) => {
@@ -129,7 +131,7 @@ export class VisionKitHandSession {
     handlers: VisionKitSessionHandlers,
     generation: number,
   ): void {
-    if (this.running && generation === this.generation) handlers.onHand(anchors[0]);
+    if (this.running && generation === this.generation) handlers.onHand(anchors[0], { receivedAt: Date.now() });
   }
 
   private onFrame(timestamp: number, canvas: VisionKitCanvas, generation: number): void {
@@ -139,9 +141,14 @@ export class VisionKitHandSession {
     try {
       const interval = 1000 / this.fps;
       if (timestamp - this.lastFrameAt >= interval) {
-        this.lastFrameAt = timestamp;
+        this.lastFrameAt = GESTURE_CONFIG.useFrameCadenceCompensation
+          ? timestamp - (timestamp - this.lastFrameAt) % interval : timestamp;
         const frame = this.session.getVKFrame(canvas.width, canvas.height);
-        if (frame) this.renderer.render(frame);
+        if (frame) {
+          this.renderer.render(frame);
+          const sourceTimestamp = (frame as { timestamp?: unknown }).timestamp;
+          this.handlers?.onFrame?.(Date.now(), typeof sourceTimestamp === 'number' && Number.isFinite(sourceTimestamp) ? sourceTimestamp : undefined);
+        }
       }
       if (this.running && generation === this.generation && this.session) this.animationFrame = this.session.requestAnimationFrame((nextTimestamp) => this.onFrame(nextTimestamp, canvas, generation));
     } catch (error) { this.fail(error); }
