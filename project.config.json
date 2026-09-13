@@ -5,7 +5,7 @@
     "compileType": "miniprogram",
     "projectname": "world-clipboard",
     "appid": "wxc822ceb29090a857",
-    "libVersion": "3.7.6",
+    "libVersion": "3.17.3",
     "setting": {
         "es6": true,
         "enhance": true,
