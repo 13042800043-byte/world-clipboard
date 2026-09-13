@@ -73,8 +73,8 @@ describe('VisionKit hand anchor adapter', () => {
     const second = adapter.update(createAnchor(0.58, 0.62), false, 40);
 
     expect(first.hand.cursor.x).toBeCloseTo(0.42);
-    expect(second.hand.cursor.x).toBeGreaterThan(0.42);
-    expect(second.hand.cursor.x).toBeLessThan(0.62);
+    expect(second.filteredCursor!.x).toBeGreaterThan(0.42);
+    expect(second.filteredCursor!.x).toBeLessThan(0.62);
   });
 
   it('uses the index tip for hover and locks the pre-pinch selection while dragging', () => {
@@ -101,13 +101,14 @@ describe('VisionKit hand anchor adapter', () => {
     expect(grace.tracking).toBe('grace');
     expect(grace.pinch).toBeUndefined();
     expect(adapter.update(closed, false, 160).pinch).toBe('PINCH_HOLD');
-    const lost = adapter.update(undefined, false, 400);
+    expect(adapter.update(undefined, false, 400).tracking).toBe('grace');
+    const lost = adapter.update(undefined, false, 461);
     expect(lost.tracking).toBe('lost');
     expect(lost.pinch).toBeUndefined();
-    expect(adapter.update(closed, false, 440).phase).toBe('REARMING');
-    for (const now of [480, 520]) adapter.update(createAnchor(0.2, 0.5), false, now);
-    expect(adapter.update(closed, false, 560).pinch).toBeUndefined();
-    expect(adapter.update(closed, false, 600).pinch).toBe('PINCH_START');
+    expect(adapter.update(closed, false, 500).phase).toBe('REARMING');
+    for (const now of [540, 580]) adapter.update(createAnchor(0.2, 0.5), false, now);
+    expect(adapter.update(closed, false, 620).pinch).toBeUndefined();
+    expect(adapter.update(closed, false, 660).pinch).toBe('PINCH_START');
   });
 
   it('rejects invalid coordinates and corrects the distance metric for tall viewports', () => {

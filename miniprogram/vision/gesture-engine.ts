@@ -6,6 +6,10 @@ export type PinchTracker = {
   isPinching: boolean;
   closedFrames: number;
   openFrames: number;
+  candidateSince?: number;
+  lastAt?: number;
+  cooldownUntil?: number;
+  sessionId: number;
 };
 
 export interface PinchOptions {
@@ -13,37 +17,54 @@ export interface PinchOptions {
   pinchReleaseThreshold: number;
   pinchStartFrames: number;
   pinchReleaseFrames: number;
+  useTimeBasedDebounce?: boolean;
+  pinchConfirmMs?: number;
+  releaseConfirmMs?: number;
+  maxObservationGapMs?: number;
+  useRearmCooldown?: boolean;
+  rearmCooldownMs?: number;
 }
 
-export function createPinchTracker(): PinchTracker {
-  return { isPinching: false, closedFrames: 0, openFrames: 0 };
+export function createPinchTracker(sessionId = 0): PinchTracker {
+  return { isPinching: false, closedFrames: 0, openFrames: 0, sessionId };
 }
 
 export function updatePinchTracker(
   tracker: PinchTracker,
   normalizedDistance: number,
   options: PinchOptions = VISION_CONFIG,
+  now?: number,
 ): { tracker: PinchTracker; event?: PinchPhase } {
+  if (now !== undefined && (!Number.isFinite(now) || (tracker.lastAt !== undefined && now <= tracker.lastAt))) return { tracker };
+  const timed = options.useTimeBasedDebounce && now !== undefined;
+  if (timed && tracker.lastAt !== undefined && now - tracker.lastAt > (options.maxObservationGapMs ?? 120)) {
+    tracker = { ...tracker, closedFrames: 0, openFrames: 0, candidateSince: undefined };
+  }
+  tracker = { ...tracker, lastAt: now };
   if (!Number.isFinite(normalizedDistance) || normalizedDistance < 0) {
-    return { tracker: { ...tracker, closedFrames: 0, openFrames: 0 } };
+    return { tracker: { ...tracker, closedFrames: 0, openFrames: 0, candidateSince: undefined } };
   }
   if (!tracker.isPinching) {
+    if (now !== undefined && now < (tracker.cooldownUntil ?? -Infinity)) return { tracker };
     const closedFrames = normalizedDistance < options.pinchStartThreshold ? tracker.closedFrames + 1 : 0;
-    if (closedFrames >= options.pinchStartFrames) {
+    const candidateSince = closedFrames ? tracker.candidateSince ?? now : undefined;
+    if (closedFrames >= options.pinchStartFrames && (!timed || now - candidateSince! >= (options.pinchConfirmMs ?? 30))) {
       return {
-        tracker: { isPinching: true, closedFrames: 0, openFrames: 0 },
+        tracker: { ...tracker, isPinching: true, closedFrames: 0, openFrames: 0, candidateSince: undefined, sessionId: tracker.sessionId + 1 },
         event: 'PINCH_START',
       };
     }
-    return { tracker: { ...tracker, closedFrames, openFrames: 0 } };
+    return { tracker: { ...tracker, closedFrames, openFrames: 0, candidateSince } };
   }
 
   const openFrames = normalizedDistance > options.pinchReleaseThreshold ? tracker.openFrames + 1 : 0;
-  if (openFrames >= options.pinchReleaseFrames) {
-    return { tracker: createPinchTracker(), event: 'PINCH_END' };
+  const candidateSince = openFrames ? tracker.candidateSince ?? now : undefined;
+  if (openFrames >= options.pinchReleaseFrames && (!timed || now - candidateSince! >= (options.releaseConfirmMs ?? 30))) {
+    return { tracker: { ...createPinchTracker(tracker.sessionId), lastAt: now,
+      cooldownUntil: now !== undefined && options.useRearmCooldown ? now + (options.rearmCooldownMs ?? 80) : undefined }, event: 'PINCH_END' };
   }
   return {
-    tracker: { ...tracker, closedFrames: 0, openFrames },
+    tracker: { ...tracker, closedFrames: 0, openFrames, candidateSince },
     event: 'PINCH_HOLD',
   };
 }
