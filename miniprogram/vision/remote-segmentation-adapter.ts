@@ -1,12 +1,14 @@
 import type { ClipboardItem } from '../clipboard/clipboard-types';
 import { parseSegmentResponse, segmentApiUrl } from '../services/vision-api';
 import type { SegmentationInput, Segmenter } from './segmentation-adapter';
+import { CUTOUT_CONFIG } from './cutout-config';
 
 type UploadResult = { statusCode: number; data: string };
 type UploadOptions = {
   url: string;
   filePath: string;
   name: string;
+  timeout: number;
   formData: Record<string, string>;
   success(result: UploadResult): void;
   fail(error: unknown): void;
@@ -53,7 +55,7 @@ export class RemoteSegmentationAdapter implements Segmenter {
   constructor(
     private readonly baseUrl: string,
     private readonly uploadFile: UploadFile = (options) => wx.uploadFile(options),
-    private readonly timeoutMs = 8000,
+    private readonly timeoutMs?: number,
   ) {}
 
   async segment(input: SegmentationInput): Promise<ClipboardItem> {
@@ -82,6 +84,9 @@ export class RemoteSegmentationAdapter implements Segmenter {
 
   private async request(input: SegmentationInput, stage: 'selection' | 'final'): Promise<ReturnType<typeof parseSegmentResponse>> {
     if (input.mode === 'color') throw new Error('color capture is handled on device');
+    const timeoutMs = this.timeoutMs ?? (stage === 'final'
+      ? CUTOUT_CONFIG.FINAL_REQUEST_TIMEOUT_MS : CUTOUT_CONFIG.SELECTION_REQUEST_TIMEOUT_MS);
+    const startedAt = Date.now();
 
     const response = await new Promise<ReturnType<typeof parseSegmentResponse>>((resolve, reject) => {
       let task: UploadTask | void;
@@ -94,15 +99,17 @@ export class RemoteSegmentationAdapter implements Segmenter {
       };
       const timeout = setTimeout(() => {
         finish(() => {
-          if (task) task.abort?.();
-          reject(new Error('segmentation request timed out'));
+          // Settle before abort: native abort may synchronously call fail.
+          reject(new VisionApiError(`segmentation request timed out：${stage === 'final' ? '最终抠图' : '悬停选取'}超过 ${Math.round(timeoutMs / 1000)} 秒，请确认手机与电脑同网且后端已启动`, 'SEGMENTATION_TIMEOUT'));
+          try { if (task) task.abort?.(); } catch (error) { console.warn('segmentation abort failed', error); }
         });
-      }, this.timeoutMs);
+      }, timeoutMs);
 
       task = this.uploadFile({
         url: segmentApiUrl(this.baseUrl),
         filePath: input.image,
         name: 'image',
+        timeout: timeoutMs,
         formData: {
           pointX: String(input.point.x),
           pointY: String(input.point.y),
@@ -111,7 +118,9 @@ export class RemoteSegmentationAdapter implements Segmenter {
           ...(input.prompt ? { prompt: JSON.stringify(input.prompt) } : {}),
           ...(input.debug ? { debug: 'true' } : {}),
         },
-        success(result) {
+        success: (result) => {
+          if (settled) return;
+          if (input.debug) console.info('Segmentation request timing', { stage, elapsedMs: Date.now() - startedAt, statusCode: result.statusCode });
           if (result.statusCode < 200 || result.statusCode >= 300) {
             const detail = backendErrorMessage(result.data);
             const message = detail
@@ -127,7 +136,12 @@ export class RemoteSegmentationAdapter implements Segmenter {
             finish(() => reject(error));
           }
         },
-        fail: (error) => finish(() => reject(normalizeUploadError(error))),
+        fail: (error) => finish(() => {
+          const normalized = normalizeUploadError(error);
+          if (/timeout|timed out/i.test(normalized.message)) {
+            reject(new VisionApiError(`${normalized.message}：${stage === 'final' ? '最终抠图' : '悬停选取'}网络请求超时，请检查后端连接`, 'SEGMENTATION_TIMEOUT'));
+          } else reject(normalized);
+        }),
       });
     });
 

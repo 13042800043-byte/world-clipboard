@@ -129,4 +129,36 @@ describe('remote segmentation adapter', () => {
     expect(abort).toHaveBeenCalledOnce();
     vi.useRealTimers();
   });
+
+  it('gives final upload 25 seconds and uses a shorter 4 second hover budget', async () => {
+    const upload = vi.fn(options => options.success({ statusCode: 200, data: JSON.stringify({
+      success: true, mode: 'object', preview: 'data:image/png;base64,preview', mask: 'data:image/png;base64,mask',
+      bbox: { x: .3, y: .2, width: .4, height: .5 },
+    }) }));
+    const adapter = new RemoteSegmentationAdapter('http://server:8000', upload);
+    await adapter.segment(input);
+    await adapter.select(input);
+    expect(upload.mock.calls[0][0].timeout).toBe(25000);
+    expect(upload.mock.calls[1][0].timeout).toBe(4000);
+  });
+
+  it('ignores late success after timeout and permits the next independent capture', async () => {
+    vi.useFakeTimers();
+    try {
+      let first: Parameters<ConstructorParameters<typeof RemoteSegmentationAdapter>[1]>[0] | undefined;
+      // Capture native callbacks without performing a real upload.
+      const upload = vi.fn(options => { first = options; return { abort: vi.fn() }; });
+      const adapter = new RemoteSegmentationAdapter('http://server:8000', upload, 50);
+      const pending = adapter.segment(input);
+      const assertion = expect(pending).rejects.toMatchObject({ code: 'SEGMENTATION_TIMEOUT' });
+      await vi.advanceTimersByTimeAsync(51);
+      await assertion;
+      first?.success({ statusCode: 200, data: '{}' });
+      const next = adapter.segment(input);
+      const nextAssertion = expect(next).rejects.toMatchObject({ code: 'SEGMENTATION_TIMEOUT' });
+      await vi.advanceTimersByTimeAsync(51);
+      await nextAssertion;
+      expect(upload).toHaveBeenCalledTimes(2);
+    } finally { vi.useRealTimers(); }
+  });
 });
