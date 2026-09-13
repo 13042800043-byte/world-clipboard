@@ -24,7 +24,7 @@ WebGL 截图已应用 VisionKit displayTransform，上传点保持 identity，�
 
 Hover 使用食指尖，Grab/Drag 用两指中点。One Euro 默认 minCutoff=1.5Hz、beta=8、derivativeCutoff=1Hz；`useOneEuroFilter` 可关闭。根据[算法作者说明](https://gery.casiez.net/1euro/)实现，参数是初始值，需真机慢动/快动校准，不声称测得真机帧率提升。
 
-首次 Pinch Candidate 冻结约 100ms 前 Hover 位置，以邻近样本中位数抗抖；selection 不跟随 Drag，过旧历史不带入下次抓取。Grab 时导出当前画面，Release 不重新拍照或取点。
+首次 Pinch Candidate 冻结约 100ms 前 Hover 位置，以邻近样本中位数抗抖；selection 不跟随 Drag，过旧历史不带入下次抓取。2026-09-13 修订：真实手势 Grab 只锁定选点和候选框，Release 确认后才拍高清照；避免相机交接期间漏掉松手。触摸调试仍在 Grab 拍照，Release 使用已保存的照片。后续分割均使用原锁定点，不使用拖动终点。
 
 220ms 内丢失：冻结，不产生 HOLD/END；超过宽限：取消，不复制。抓取中丢失后要先稳定张开两指再捏合。watchdog 处理没有 removeAnchor 回调的情况；离页清理定时器并使旧异步结果失效。Touch 与 VisionKit 互斥；touchcancel 只取消；一次抓取最多一次上传/跳转。共享截图文件串行写入，避免旧写入覆盖新图。
 
@@ -37,7 +37,7 @@ Hover 使用食指尖，Grab/Drag 用两指中点。One Euro 默认 minCutoff=1.
 1. 同一可信 Wi-Fi，后端监听 `0.0.0.0:8000`，手机可访问 config 中 IP 的 `/api/health`。
 2. 开发者工具重新编译、生成新真机预览，不用旧二维码包。
 3. 手掌向镜头，食指光标放进目标内部，稳定约 0.2 秒；两指尖对捏、保持、移动、张开。
-4. Grab 后先保持捏合，核对缩略图十字是否在原目标；拖动不应改变十字。若不对齐，保存调试截图，先校准而非换分割模型。
+4. Grab 后保持手机对准目标，在画面内张开两指即可复制，不必拖动。松手拍照后核对缩略图十字是否在原目标；拖动不应改变选点。若不对齐，保存调试截图，先校准而非换分割模型。
 5. 短遮挡维持；长遮挡取消且不跳页；恢复先张开。
 6. 松手仅进入一次 Clipboard，点击拼豆得到真实 32×32 图纸；失败仍显示具体捕获/上传/分割错误。
 

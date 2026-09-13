@@ -20,7 +20,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   queries = [];
   vi.stubGlobal('Page', (definition: any) => {
-    page = { ...definition, data: { ...definition.data }, setData(update: object) { Object.assign(this.data, update); } };
+    page = { ...definition, data: { ...definition.data }, setData(update: object, callback?: () => void) { Object.assign(this.data, update); callback?.(); } };
   });
   vi.stubGlobal('wx', {
     getWindowInfo: () => ({ windowWidth: 400, windowHeight: 800, pixelRatio: 3 }),

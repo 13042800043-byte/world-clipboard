@@ -33,7 +33,7 @@ beforeEach(async () => {
   navigate = vi.fn()
   drawColorPatch = vi.fn()
   vi.stubGlobal('Page', (definition: any) => {
-    page = { ...definition, data: { ...definition.data }, setData(update: object) { Object.assign(this.data, update) } }
+    page = { ...definition, data: { ...definition.data }, setData(update: object, callback?: () => void) { Object.assign(this.data, update); callback?.() } }
   })
   vi.stubGlobal('wx', {
     getWindowInfo: () => ({ windowWidth: 400, windowHeight: 800, pixelRatio: 3 }),
@@ -53,7 +53,103 @@ beforeEach(async () => {
 })
 afterEach(() => { page.onUnload(); clipboardStore.clear(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
+async function grabAndReleaseHand() {
+  page.onVisionHand(anchor(true))
+  await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
+  expect(page.data.isGrabbed).toBe(true)
+  expect(page.data.finalCapturing).toBe(false)
+  await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(false))
+  await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(false))
+  expect(page.data.isCopying).toBe(true)
+}
+
 describe('camera Grab snapshot lifecycle', () => {
+  it('completes three real-hand copies across Clipboard returns', async () => {
+    page.data.useVisionKit = true
+    for (let round = 0; round < 3; round++) {
+      await grabAndReleaseHand()
+      page.onCameraReady()
+      await vi.advanceTimersByTimeAsync(880)
+      expect(mocks.capture).toHaveBeenCalledTimes(round + 1)
+      expect(mocks.segment).toHaveBeenCalledTimes(round + 1)
+      expect(navigate).toHaveBeenCalledTimes(round + 1)
+      page.onHide(); page.onShow()
+      await vi.advanceTimersByTimeAsync(1)
+    }
+  })
+  it('waits for the restored canvas view update before restarting hand tracking', async () => {
+    page.data.useVisionKit = true
+    let canvasMounted = true
+    const query = vi.fn((callback: any) => callback(canvasMounted ? [{ node: {} }] : []))
+    Object.assign(wx, { createSelectorQuery: () => ({ select: () => ({ node: () => ({ exec: query }) }) }) })
+    page.setData = function(update: any, callback?: () => void) {
+      Object.assign(this.data, update)
+      if (update.useVisionKit === false) canvasMounted = false
+      if (update.useVisionKit === true) {
+        setTimeout(() => { canvasMounted = true; callback?.() }, 80)
+      } else callback?.()
+    }
+    await grabAndReleaseHand()
+    page.onCameraReady()
+    await vi.advanceTimersByTimeAsync(180)
+    expect(query).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(80)
+    expect(query).toHaveBeenCalledOnce()
+    expect(page.data.useVisionKit).toBe(true)
+    expect(page.data.finalCapturing).toBe(false)
+    await vi.advanceTimersByTimeAsync(700)
+    expect(navigate).toHaveBeenCalledOnce()
+  })
+  it('allows another hand copy after the release-time photo fails', async () => {
+    page.data.useVisionKit = true
+    mocks.capture.mockRejectedValueOnce(new Error('photo unavailable'))
+    await grabAndReleaseHand()
+    page.onCameraReady()
+    await vi.advanceTimersByTimeAsync(880)
+    expect(page.data.isCopying).toBe(false)
+    expect(page.data.status).toContain('photo unavailable')
+    expect(navigate).not.toHaveBeenCalled()
+    await grabAndReleaseHand()
+    page.onCameraReady()
+    await vi.advanceTimersByTimeAsync(880)
+    expect(mocks.segment).toHaveBeenCalledOnce()
+    expect(navigate).toHaveBeenCalledOnce()
+  })
+  it('discards a deferred hand photo if the page is hidden before release', async () => {
+    page.data.useVisionKit = true
+    page.onVisionHand(anchor(true))
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
+    expect(page.data.isGrabbed).toBe(true)
+    page.onHide(); page.onShow()
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(false))
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(false))
+    await vi.advanceTimersByTimeAsync(880)
+    expect(mocks.capture).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+  it('keeps tracking during Grab and copies once after two open observations, without dragging', async () => {
+    page.data.useVisionKit = true;
+    page.onVisionHand({ ...anchor(true), id: 1 });
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand({ ...anchor(true), id: 1 });
+    expect(page.data.isGrabbed).toBe(true);
+    expect(page.data.finalCapturing).toBe(false);
+    expect(page.data.useVisionKit).toBe(true);
+    expect(mocks.capture).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(40);
+    page.onVisionHand({ ...anchor(false), id: 2 });
+    await vi.advanceTimersByTimeAsync(150); page.onVisionHand({ ...anchor(false), id: 2 });
+    expect(page.data.isCopying).toBe(true);
+    expect(page.data.finalCapturing).toBe(true);
+    page.onVisionHand({ ...anchor(false), id: 2 });
+    page.finishGrab(); // Duplicate release must not take another photo.
+    page.onCameraReady();
+    await vi.advanceTimersByTimeAsync(180);
+    expect(mocks.capture).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(700);
+    expect(mocks.segment).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(clipboardStore.get()?.id).toBe('real');
+  });
   it('grabs with 150ms hand callbacks and changing native ids after showing the index cursor', async () => {
     page.data.useVisionKit = true;
     page.onVisionHand({ ...anchor(false), id: 1 });
@@ -64,7 +160,8 @@ describe('camera Grab snapshot lifecycle', () => {
     await vi.advanceTimersByTimeAsync(150);
     page.onVisionHand({ ...anchor(true), id: 3 });
     expect(page.data.isGrabbed).toBe(true);
-    expect(page.data.finalCapturing).toBe(true);
+    expect(page.data.finalCapturing).toBe(false);
+    expect(mocks.capture).not.toHaveBeenCalled();
   });
   it('shows and moves the cursor with native score placeholders, then starts a real hand grab', async () => {
     page.data.useVisionKit = true;
@@ -108,6 +205,8 @@ describe('camera Grab snapshot lifecycle', () => {
     page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(false))
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(false))
     expect(page.data.finalCapturing).toBe(true)
     page.onHide()
     expect(page.data.useVisionKit).toBe(true)
@@ -124,21 +223,17 @@ describe('camera Grab snapshot lifecycle', () => {
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand(anchor(true))
     expect(page.data.isGrabbed).toBe(true)
-    // A deliberate VK → native Camera pause must not count as tracking loss.
+    // A brief occlusion is not Release, and Grab no longer interrupts tracking.
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand()
     expect(page.data.isGrabbed).toBe(true)
-    page.onCameraReady()
-    await vi.advanceTimersByTimeAsync(180)
-    // Native hand inference can need a warm-up after camera ownership returns.
-    await vi.advanceTimersByTimeAsync(500)
-    page.onVisionHand()
-    expect(page.data.isGrabbed).toBe(true)
+    await vi.advanceTimersByTimeAsync(40)
     page.onVisionHand(anchor(true))
     await vi.advanceTimersByTimeAsync(40); page.onVisionHand()
     expect(page.data.isGrabbed).toBe(true)
     await vi.advanceTimersByTimeAsync(280) // Grab now has 300ms tracking grace.
     expect(page.data.isGrabbed).toBe(false)
     expect(mocks.segment).not.toHaveBeenCalled()
+    expect(mocks.capture).not.toHaveBeenCalled()
     page.onVisionHand(anchor(true))
     expect(page.data.handStatus).toContain('先张开')
     expect(page.data.isGrabbed).toBe(false)

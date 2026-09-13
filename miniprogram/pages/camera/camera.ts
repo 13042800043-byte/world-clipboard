@@ -66,6 +66,7 @@ let touchActive = false
 let captureGeneration = 0
 type SelectionCapture = FinalPhoto
 let grabbedFrame: Promise<{ capture?: SelectionCapture; error?: Error }> | undefined
+let deferredHandCapture: (() => Promise<{ capture?: SelectionCapture; error?: Error }>) | undefined
 let finalCapturePending = false
 let resumingAfterCapture = false
 let photoLease: number | undefined
@@ -358,6 +359,7 @@ Page({
       captureGeneration++
       spatialController.reset()
       grabbedFrame = undefined
+      deferredHandCapture = undefined
     }
     console.warn('VisionKit unavailable, falling back to Camera API', error)
     this.setData({
@@ -424,6 +426,7 @@ Page({
       captureGeneration += 1
       spatialController.reset()
       grabbedFrame = undefined
+      deferredHandCapture = undefined
       hoverSelection?.reset()
       const handStatus = result.phase === 'REARMING' ? '先张开两指，再重新抓取' : '请将手放入画面'
       if (this.data.gesture !== 'IDLE' || this.data.isGrabbed || this.data.handStatus !== handStatus || this.data.candidateOutline) {
@@ -475,7 +478,7 @@ Page({
         isGrabbed: true,
         selectionX: selection.x,
         selectionY: selection.y,
-        status: '已抓住 · 移动后松开',
+        status: '已抓住 · 张开两指即可复制',
       }, sample)
     } else if (result.pinch === 'PINCH_HOLD' && spatialController.isDragging()) {
       const next = spatialController.move(point)
@@ -489,7 +492,7 @@ Page({
           objectY: dragPoint.y,
           gesture: next.gesture,
           handStatus: '已检测到手部',
-          status: next.gesture === 'DRAGGING' ? '拖动中 · 张开手指即复制' : '已抓住 · 移动后松开',
+          status: next.gesture === 'DRAGGING' ? '拖动中 · 张开手指即复制' : '已抓住 · 张开两指即可复制',
         }, sample)
       }
     } else if (result.pinch === 'PINCH_END' && spatialController.isDragging()) {
@@ -584,9 +587,12 @@ Page({
   async finishGrab() {
     if (!spatialController.isDragging() || this.data.isCopying) return
     const generation = captureGeneration
-    const selectionFrame = grabbedFrame
+    const startCapture = deferredHandCapture
+    deferredHandCapture = undefined
     const mode = this.data.mode
     const next = spatialController.release()
+    if (handExpiryTimer) clearTimeout(handExpiryTimer)
+    handExpiryTimer = undefined
 
     this.setData({
       gesture: next.gesture,
@@ -596,9 +602,14 @@ Page({
     })
 
     try {
+      // Release is already confirmed and copying latched before handing the
+      // camera to takePhoto. Late hand observations cannot start another copy.
+      const selectionFrame = grabbedFrame ?? startCapture?.()
+      grabbedFrame = selectionFrame
       const result = await selectionFrame
       if (!pageVisible || generation !== captureGeneration) return
       if (!result?.capture) throw result?.error ?? new Error('抓取画面尚未准备好，请重新抓取')
+      this.setData({ status: mode === 'color' ? '正在复制颜色…' : '正在抠取物体，生成剪贴板…' })
       const [item] = await Promise.all([
         mode === 'color' ? colorCapture.capture(result.capture) : finalSegmenter.segment(result.capture, mode, async () => {
           this.setData({ status: '画面偏糊 · 请稳住手机，自动重拍一次' })
@@ -641,8 +652,9 @@ Page({
         ? buildHandNegativePrompt(touchActive ? [] : lastLandmarks, selection, candidate?.bbox) : [] }
     const capture = CUTOUT_CONFIG.USE_HIGH_RES_FINAL_CAPTURE ? this.createFinalCapture(generation) : undefined
     recaptureFinal = capture ? () => capture.capture(input) : undefined
-    // Tracking frames are selection-only. Final RGB comes from takePhoto high.
-    grabbedFrame = (capture ? capture.capture(input) : this.captureSelectionFrame(selection)).then((capture: SelectionCapture) => {
+    // Freeze the prompt on Grab, but keep tracking alive until Release. Final
+    // RGB is the release-time photo; Touch retains its original Grab snapshot.
+    const runCapture = () => (capture ? capture.capture(input) : this.captureSelectionFrame(selection)).then((capture: SelectionCapture) => {
       if (pageVisible && generation === captureGeneration && this.data.coordinateDebug) {
         this.setData({ debugFrame: capture.image, debugFrameWidth: capture.width, debugFrameHeight: capture.height,
           framePointX: capture.point.x, framePointY: capture.point.y,
@@ -650,6 +662,13 @@ Page({
       }
       return { capture }
     }).catch((error: unknown) => ({ error: error instanceof Error ? error : new Error('画面导出失败') }))
+    if (CUTOUT_CONFIG.CAPTURE_HAND_PHOTO_ON_RELEASE && this.data.useVisionKit && !touchActive) {
+      deferredHandCapture = runCapture
+      grabbedFrame = undefined
+    } else {
+      deferredHandCapture = undefined
+      grabbedFrame = runCapture()
+    }
   },
 
   updateHoverSelection(point: NormalizedPoint) {
@@ -729,8 +748,10 @@ Page({
         frameCapture = undefined
         resumingAfterCapture = pageVisible
         finalCapturePending = pageVisible
-        this.setData({ useVisionKit: true, cameraReady: false, finalCapturing: pageVisible })
-        if (pageVisible) wx.nextTick(() => this.startVisionKit())
+        // The new wx:if canvas exists only after the view update completes.
+        this.setData({ useVisionKit: true, cameraReady: false, finalCapturing: pageVisible }, () => {
+          if (pageVisible && generation === captureGeneration && this.data.useVisionKit && !this.data.useMockScene) this.startVisionKit()
+        })
       },
     })
   },
@@ -770,6 +791,7 @@ Page({
     this.setData({ candidateOutline: '' })
     captureGeneration += 1
     grabbedFrame = undefined
+    deferredHandCapture = undefined
     touchActive = false
     if (handExpiryTimer) clearTimeout(handExpiryTimer)
     handExpiryTimer = undefined
