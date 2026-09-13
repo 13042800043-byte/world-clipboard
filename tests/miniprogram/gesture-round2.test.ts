@@ -12,6 +12,48 @@ export function handAt(distance: number, x = .5, palm = .4): VisionKitHandAnchor
 }
 
 describe('round 2 predictable gesture timing', () => {
+  it.each([125, 150, 200])('confirms a held pinch and release with real observations %ims apart', interval => {
+    const adapter = new VisionKitHandGestureAdapter();
+    adapter.update(handAt(.8), false, 0);
+    adapter.update(handAt(.2), false, interval);
+    expect(adapter.update(handAt(.2), false, interval * 2).pinch).toBe('PINCH_START');
+    expect(adapter.update(handAt(.2), false, interval * 3).pinch).toBe('PINCH_HOLD');
+    adapter.update(handAt(.8), false, interval * 4);
+    expect(adapter.update(handAt(.8), false, interval * 5).pinch).toBe('PINCH_END');
+  });
+
+  it('keeps pinch confirmation when a continuous hand gets new native anchor ids', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    adapter.update({ ...handAt(.8), id: 1 }, false, 0);
+    adapter.update({ ...handAt(.2), id: 2 }, false, 40);
+    const start = adapter.update({ ...handAt(.2), id: 3 }, false, 80);
+    expect(start.pinch).toBe('PINCH_START');
+    expect(adapter.update({ ...handAt(.2), id: 4 }, false, 120).pinch).toBe('PINCH_HOLD');
+    adapter.update({ ...handAt(.8), id: 5 }, false, 160);
+    expect(adapter.update({ ...handAt(.8), id: 6 }, false, 200).pinch).toBe('PINCH_END');
+  });
+
+  it('does not transfer a grabbed session to a spatially different hand', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    adapter.update({ ...handAt(.2, .4), id: 1 }, false, 0);
+    adapter.update({ ...handAt(.2, .4), id: 1 }, false, 40);
+    const other = adapter.update({ ...handAt(.2, .75), id: 2 }, false, 80);
+    expect(other.phase).toBe('REARMING');
+    expect(other.pinch).toBeUndefined();
+  });
+
+  it('does not confirm using a stale closing observation beyond the permitted gap', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    adapter.update(handAt(.2), false, 0);
+    expect(adapter.update(handAt(.2), false, 210).pinch).toBeUndefined();
+    expect(adapter.update(handAt(.2), false, 250).pinch).toBe('PINCH_START');
+  });
+
+  it('retains strict native id resets when the continuity feature is disabled', () => {
+    const adapter = new VisionKitHandGestureAdapter({ ...GESTURE_PROFILES.stable, useHandIdContinuity: false });
+    adapter.update({ ...handAt(.2), id: 1 }, false, 0);
+    expect(adapter.update({ ...handAt(.2), id: 2 }, false, 40).pinch).toBeUndefined();
+  });
   it('preserves the held session and cursor when photo resume gives the hand a new native id', () => {
     const adapter = new VisionKitHandGestureAdapter({ ...GESTURE_PROFILES.stable, useOneEuroFilter: false });
     const initial = { ...handAt(.2), id: 1 };

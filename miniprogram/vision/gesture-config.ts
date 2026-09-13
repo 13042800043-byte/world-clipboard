@@ -21,6 +21,7 @@ const current = {
   useDragThreshold: false, useRearmCooldown: false,
   useVelocityAdaptiveFilter: true, useStableHistory: false,
   useObservationGuard: false, duplicateWindowMs: 8,
+  useHandIdContinuity: false, handIdMaxPalmMotion: 0.25, handIdMinScaleRatio: 0.65,
   useFrameCadenceCompensation: false,
   showCoordinateDebug: false,
   telemetryWindowMs: 10000, telemetryCapacity: 600, debugUpdateIntervalMs: 200,
@@ -29,6 +30,10 @@ const current = {
 export type GestureConfig = typeof current;
 const stable: GestureConfig = {
   ...current,
+  // 5–8Hz native hand callbacks must be able to finish the two-observation
+  // confirmation. Keep this below the 220ms actual tracking-loss grace.
+  maxObservationGapMs: 200,
+  useHandIdContinuity: true,
   useTimeBasedDebounce: true, usePalmScaleFilter: true,
   // Native confidence metadata has not been calibrated on target phones.
   // Keep logging it; hard rejection is opt-in until device samples validate it.

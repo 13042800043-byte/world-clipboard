@@ -178,7 +178,8 @@ export class VisionKitHandGestureAdapter {
     }
     // Reacquisition after a long callback gap must not resurrect a stale pinch.
     const changedHand = anchor?.id !== undefined && this.handId !== undefined && anchor.id !== this.handId;
-    if (changedHand || (this.lastSeenAt !== undefined && now - this.lastSeenAt >=
+    const continuousHand = changedHand && this.isContinuousHand(hand, now, aspectRatio);
+    if ((changedHand && !continuousHand) || (this.lastSeenAt !== undefined && now - this.lastSeenAt >=
         (this.options.useTrackingGrace ? this.graceMs() : this.options.trackingLostGraceMs))) {
       const wasPinching = this.pinchTracker.isPinching || this.needsRearm;
       this.reset();
@@ -261,6 +262,18 @@ export class VisionKitHandGestureAdapter {
     }
     if (update.event === 'PINCH_END') this.history = [];
     return { ...this.result(filteredHand, 'detected', this.phase()), pinch: update.event, rawCursor };
+  }
+
+  private isContinuousHand(hand: VisionKitHandResult, now: number, aspectRatio: number): boolean {
+    if (!this.options.useHandIdContinuity || !this.lastHand || this.lastSeenAt === undefined ||
+        now - this.lastSeenAt > this.options.maxObservationGapMs) return false;
+    const previous = this.lastHand;
+    const scale = Math.min(hand.palmScale, previous.palmScale);
+    if (scale / Math.max(hand.palmScale, previous.palmScale) < this.options.handIdMinScaleRatio) return false;
+    // Palm landmarks stay steadier than fingertips during closing. A changed
+    // id alone is insufficient evidence that the user's hand has changed.
+    return [0, 5, 9, 17].every(index => distance(hand.landmarks[index], previous.landmarks[index], aspectRatio)
+      <= scale * this.options.handIdMaxPalmMotion);
   }
 
   private phase(): VisionKitGestureResult['phase'] {

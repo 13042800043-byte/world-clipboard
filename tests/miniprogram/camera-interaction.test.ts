@@ -54,6 +54,18 @@ beforeEach(async () => {
 afterEach(() => { page.onUnload(); clipboardStore.clear(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('camera Grab snapshot lifecycle', () => {
+  it('grabs with 150ms hand callbacks and changing native ids after showing the index cursor', async () => {
+    page.data.useVisionKit = true;
+    page.onVisionHand({ ...anchor(false), id: 1 });
+    expect(page.data.handDetected).toBe(true);
+    await vi.advanceTimersByTimeAsync(150);
+    page.onVisionHand({ ...anchor(true), id: 2 });
+    expect(page.data.status).toContain('检测到捏合');
+    await vi.advanceTimersByTimeAsync(150);
+    page.onVisionHand({ ...anchor(true), id: 3 });
+    expect(page.data.isGrabbed).toBe(true);
+    expect(page.data.finalCapturing).toBe(true);
+  });
   it('shows and moves the cursor with native score placeholders, then starts a real hand grab', async () => {
     page.data.useVisionKit = true;
     const native = (closed: boolean) => ({ ...anchor(closed), score: 0, confidence: [] });

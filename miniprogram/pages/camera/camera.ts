@@ -82,6 +82,8 @@ let handVelocity = 0
 const gestureTelemetry = new GestureTelemetry(APP_CONFIG.DEBUG_MODE && VISION_CONFIG.showCoordinateDebug)
 let lastDebugRenderAt = -Infinity
 let lastHandHealthAt = -Infinity
+let lastHandHealthPhase = ''
+let lastHandObservationAt: number | undefined
 
 Page({
   data: {
@@ -139,6 +141,8 @@ Page({
     lastSpatialRenderAt = 0
     lastDebugRenderAt = -Infinity
     lastHandHealthAt = -Infinity
+    lastHandHealthPhase = ''
+    lastHandObservationAt = undefined
     this.setData({
       cursorX: 0.5,
       cursorY: 0.56,
@@ -379,12 +383,19 @@ Page({
       visionGestureAdapter.resumeAfterCapture(now - 1)
     }
     const result = visionGestureAdapter.update(anchor, false, now, windowInfo.windowWidth / windowInfo.windowHeight)
-    if (APP_CONFIG.DEBUG_MODE && now - lastHandHealthAt >= 2000) {
+    const observationGapMs = lastHandObservationAt === undefined ? null : now - lastHandObservationAt
+    if (anchor) lastHandObservationAt = now
+    if (APP_CONFIG.DEBUG_MODE && (result.pinch === 'PINCH_START' || result.pinch === 'PINCH_END'
+        || now - lastHandHealthAt >= (result.phase !== lastHandHealthPhase ? 250 : 2000))) {
       lastHandHealthAt = now
+      lastHandHealthPhase = result.phase
       console.info('WORLD_CLIPBOARD_HAND', { event: 'observation', points: anchor?.points?.length ?? 0,
         score: anchor?.score, confidenceCount: anchor?.confidence?.length ?? 0, confidence: result.confidence,
         accepted: result.accepted, reason: result.qualityReason, phase: result.phase, tracking: result.tracking,
-        pinchDistance: Number.isFinite(result.hand.pinchDistance) ? result.hand.pinchDistance : null })
+        anchorId: anchor?.id, observationGapMs, closedFrames: result.closedFrames, openFrames: result.openFrames,
+        candidateMs: result.candidateDurationMs, pinchEvent: result.pinch,
+        pinchDistance: Number.isFinite(result.hand.pinchDistance) ? result.hand.pinchDistance : null,
+        palmScale: result.filteredPalmScale, thumb: result.hand.landmarks[4], index: result.hand.landmarks[8] })
     }
     const sample = gestureTelemetry.record(result, now, Date.now(), spatialController.isDragging() ? spatialController.getDragDistance(result.hand.cursor) : 0)
     if (this.data.coordinateDebug && now - lastDebugRenderAt >= VISION_CONFIG.debugUpdateIntervalMs) {
@@ -493,7 +504,9 @@ Page({
         objectY: point.y,
         handStatus: '已检测到手部',
         gesture: 'HOVERING',
-        status: '拇指与食指对捏并保持',
+        status: result.qualityReason === 'LOW_CONFIDENCE_ZONE' ? '请将拇指和食指移入画面中央'
+          : result.phase === 'PINCH_CANDIDATE' ? '检测到捏合 · 保持片刻'
+          : '拇指与食指指尖相碰并保持',
       }, sample)
     }
   },
