@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { GESTURE_PROFILES } from '../../miniprogram/vision/gesture-config';
 import {
   VisionKitHandGestureAdapter,
   mapVisionKitAnchor,
@@ -20,6 +21,29 @@ function createAnchor(thumbX: number, indexX: number): VisionKitHandAnchor {
 }
 
 describe('VisionKit hand anchor adapter', () => {
+  it.each([[], [.9], [NaN], Array(21).fill(NaN)].map(confidence => ({ confidence })))('treats unavailable per-point confidence as unknown, not a hidden hand: $confidence', ({ confidence }) => {
+    const adapter = new VisionKitHandGestureAdapter({ ...GESTURE_PROFILES.stable, useConfidenceGate: true });
+    const result = adapter.update({ ...createAnchor(.2, .5), confidence }, false, 0);
+    expect(result.hand.detected).toBe(true);
+    expect(result.accepted).toBe(true);
+    expect(result.confidence).toBeUndefined();
+  });
+
+  it('restores default cursor and pinch for valid landmarks with uncalibrated low native scores', () => {
+    const adapter = new VisionKitHandGestureAdapter();
+    const withScore = (thumb: number, index: number) => ({ ...createAnchor(thumb, index), score: 0, confidence: Array(21).fill(0) });
+    expect(adapter.update(withScore(.2, .5), false, 0).hand.detected).toBe(true);
+    expect(adapter.update(withScore(.25, .55), false, 40).hand.cursor.x).toBeGreaterThan(.5);
+    adapter.update(withScore(.52, .56), false, 80);
+    expect(adapter.update(withScore(.52, .56), false, 120).pinch).toBe('PINCH_START');
+  });
+
+  it('does not throw on a non-hand or malformed native anchor', () => {
+    for (const value of [{ type: 0 }, { points: [null] }, { points: Array(21).fill(null) }]) {
+      expect(() => mapVisionKitAnchor(value as unknown as VisionKitHandAnchor)).not.toThrow();
+      expect(mapVisionKitAnchor(value as unknown as VisionKitHandAnchor).detected).toBe(false);
+    }
+  });
   it('maps thumb and index tips to a centered spatial cursor', () => {
     const result = mapVisionKitAnchor(createAnchor(0.4, 0.6));
 

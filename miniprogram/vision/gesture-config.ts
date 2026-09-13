@@ -30,7 +30,9 @@ export type GestureConfig = typeof current;
 const stable: GestureConfig = {
   ...current,
   useTimeBasedDebounce: true, usePalmScaleFilter: true,
-  useExtendedGrabGrace: true, useConfidenceGate: true, useEdgeGate: true,
+  // Native confidence metadata has not been calibrated on target phones.
+  // Keep logging it; hard rejection is opt-in until device samples validate it.
+  useExtendedGrabGrace: true, useConfidenceGate: false, useEdgeGate: true,
   useCursorDeadZone: true, useContinuousCursor: true, useDragThreshold: true,
   useRearmCooldown: true, useStableHistory: true,
   useObservationGuard: true, useFrameCadenceCompensation: true,

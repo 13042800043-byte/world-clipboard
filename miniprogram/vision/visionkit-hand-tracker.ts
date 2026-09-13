@@ -18,6 +18,7 @@ const REQUIRED_LANDMARKS = 21;
 export type VisionKitPoint = NormalizedPoint & { z?: number };
 
 export type VisionKitHandAnchor = {
+  type?: number;
   points: VisionKitPoint[];
   origin: NormalizedPoint;
   size: { width: number; height: number };
@@ -59,14 +60,26 @@ export type VisionKitGestureResult = {
 
 export type HandGestureOptions = GestureConfig;
 
+/** Native callbacks may also contain plane/removal anchors without landmarks. */
+export function isVisionKitHandAnchor(value: unknown): value is VisionKitHandAnchor {
+  if (!value || typeof value !== 'object') return false;
+  const anchor = value as Partial<VisionKitHandAnchor>;
+  if (anchor.type !== undefined && anchor.type !== 7) return false;
+  if (!Array.isArray(anchor.points) || anchor.points.length < REQUIRED_LANDMARKS) return false;
+  for (let i = 0; i < REQUIRED_LANDMARKS; i++) {
+    const point = anchor.points[i];
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
+  }
+  return !!anchor.size && Number.isFinite(anchor.size.width) && Number.isFinite(anchor.size.height);
+}
+
 export function mapVisionKitAnchor(
   anchor: VisionKitHandAnchor | undefined,
   mirrorX = false,
   aspectRatio = 1,
   options: HandGestureOptions = VISION_CONFIG,
 ): VisionKitHandResult {
-  if (!anchor || anchor.points.length < REQUIRED_LANDMARKS ||
-      !anchor.points.slice(0, REQUIRED_LANDMARKS).every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) {
+  if (!isVisionKitHandAnchor(anchor)) {
     return emptyHandResult();
   }
 
@@ -353,13 +366,12 @@ function median(values: number[]): number {
 // Missing metadata is unknown, not a fabricated confidence of 1 or 0.
 function readConfidence(anchor?: VisionKitHandAnchor): number | undefined {
   if (!anchor) return undefined;
-  let result = anchor.score;
-  if (result !== undefined && (!Number.isFinite(result) || result < 0 || result > 1)) return 0;
-  if (anchor.confidence) {
+  const valid = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  let result = valid(anchor.score) ? anchor.score : undefined;
+  const confidence = anchor.confidence;
+  if (confidence && confidence.length >= REQUIRED_LANDMARKS && [4, 8, 5, 17].every(index => valid(confidence[index]))) {
     for (const index of [4, 8, 5, 17]) {
-      const value = anchor.confidence[index];
-      if (!Number.isFinite(value) || value < 0 || value > 1) return 0;
-      result = Math.min(result ?? 1, value);
+      result = Math.min(result ?? 1, confidence[index]);
     }
   }
   return result;

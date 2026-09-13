@@ -1,4 +1,4 @@
-import type { VisionKitHandAnchor } from './visionkit-hand-tracker';
+import { isVisionKitHandAnchor, type VisionKitHandAnchor } from './visionkit-hand-tracker';
 import { GESTURE_CONFIG } from './gesture-config';
 
 export type VisionKitFrame = unknown;
@@ -51,6 +51,7 @@ export class VisionKitHandSession {
   private generation = 0;
   private animationFrame?: number;
   private handlers?: VisionKitSessionHandlers;
+  private activeHandId?: number;
 
   constructor(
     private readonly createSession: SessionFactory = (options) => wx.createVKSession(options),
@@ -79,8 +80,14 @@ export class VisionKitHandSession {
 
       session.on('addAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers, generation));
       session.on('updateAnchors', (anchors) => this.forwardFirstAnchor(anchors, handlers, generation));
-      session.on('removeAnchors', () => {
-        if (this.running && generation === this.generation) handlers.onHand(undefined, { receivedAt: Date.now() });
+      session.on('removeAnchors', (anchors) => {
+        if (!this.running || generation !== this.generation || !Array.isArray(anchors)) return;
+        const removedActive = anchors.some(anchor => anchor && (
+          this.activeHandId !== undefined ? anchor.id === this.activeHandId : anchor.type === 7 || isVisionKitHandAnchor(anchor)));
+        if (anchors.length === 0 || removedActive) {
+          this.activeHandId = undefined;
+          handlers.onHand(undefined, { receivedAt: Date.now() });
+        }
       });
 
       session.start((error) => {
@@ -107,6 +114,7 @@ export class VisionKitHandSession {
     this.session = undefined;
     this.renderer = undefined;
     this.handlers = undefined;
+    this.activeHandId = undefined;
     this.animationFrame = undefined;
     // Official release APIs: https://github.com/wechat-miniprogram/api-typings/blob/master/types/wx/lib.wx.api.d.ts
     // Every resource is released even if one native cleanup method fails.
@@ -131,7 +139,13 @@ export class VisionKitHandSession {
     handlers: VisionKitSessionHandlers,
     generation: number,
   ): void {
-    if (this.running && generation === this.generation) handlers.onHand(anchors[0], { receivedAt: Date.now() });
+    if (!this.running || generation !== this.generation || !Array.isArray(anchors)) return;
+    const anchor = anchors.find(value => isVisionKitHandAnchor(value) && value.id === this.activeHandId)
+      ?? anchors.find(isVisionKitHandAnchor);
+    // An unrelated plane update must not clear a still-tracked hand.
+    if (!anchor && anchors.length > 0) return;
+    this.activeHandId = anchor?.id;
+    handlers.onHand(anchor, { receivedAt: Date.now() });
   }
 
   private onFrame(timestamp: number, canvas: VisionKitCanvas, generation: number): void {

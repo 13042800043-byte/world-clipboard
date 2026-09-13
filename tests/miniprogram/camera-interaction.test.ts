@@ -54,6 +54,20 @@ beforeEach(async () => {
 afterEach(() => { page.onUnload(); clipboardStore.clear(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('camera Grab snapshot lifecycle', () => {
+  it('shows and moves the cursor with native score placeholders, then starts a real hand grab', async () => {
+    page.data.useVisionKit = true;
+    const native = (closed: boolean) => ({ ...anchor(closed), score: 0, confidence: [] });
+    page.onVisionHand(native(false));
+    expect(page.data.handDetected).toBe(true);
+    expect(page.data.cursorX).toBeCloseTo(.52);
+    await vi.advanceTimersByTimeAsync(50);
+    const moved = native(false); moved.points[8].x = .62;
+    page.onVisionHand(moved);
+    expect(page.data.cursorX).toBeGreaterThan(.52);
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(native(true));
+    await vi.advanceTimersByTimeAsync(40); page.onVisionHand(native(true));
+    expect(page.data.isGrabbed).toBe(true);
+  });
   it('surfaces local color read failure and resets Grab without calling the backend', async () => {
     Object.assign(wx, { createOffscreenCanvas: () => ({ width: 9, height: 9, getContext: () => ({ drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(81 * 4) }) }), createImage: () => ({ width: 640, height: 480, onload: undefined, set src(_value) { this.onload() } }) }) })
     page.onModeChange({ detail: { mode: 'color' } })

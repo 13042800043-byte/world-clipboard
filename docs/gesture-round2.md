@@ -2,6 +2,18 @@
 
 2026-09-13。范围仅为 Hand / Gesture / Spatial Cursor；保留现有 VisionKit、One Euro、Gesture Engine、Interaction State Machine 和 Touch Debug。没有修改 Segmentation、Final Cutout、后端、模型或插件。`project.config.json` 的既有本地修改未纳入本轮提交。
 
+### 真机无光标回归修复（10:30）
+
+用户报告相机正常、手移动没有光标。新增页面级回归成功复现：有效 21 点携带 `score=0, confidence=[]` 时，之前默认 0.4 硬门槛令 `handDetected=false`，光标被隐藏。尚未取得该手机的原生 Anchor 样本，不能断言该分数就是实际返回值，但这是上一轮引入的确定性失效路径。
+
+已将 stable/responsive/debug 的 `useConfidenceGate` 默认关闭，恢复按有效关键点跟手，并保留时间确认、归一化、滞回与短时丢失保护。置信度仍采集；待目标设备校准后可显式开启。空、短、非数值置信度数组按“不可用”处理，存在有效总体分数时使用总体分数；完整低分数组在显式开启 gate 后仍受保护。下文最初的“门控开启”记录为第一版实验行为，以本段修正为准。
+
+原生回调增加 Anchor 形状校验，选择实际手部而非固定第一项；其他对象的更新/移除不会清除正在追踪的手；残缺点不再触发 JS 异常。`WORLD_CLIPBOARD_HAND` 日志在 `DEBUG_MODE=true` 时自动输出：会话就绪一次，处理中的观测最多每两秒一次，包含点数、原始 score、置信度数组长度、接受状态、阻断原因和阶段，不记录图像或 21 点内容。无需打开大调试面板即可定位后续真机问题。
+
+增加覆盖：空/短/异常置信度、0 分默认跟手与 Pinch、主动门控低分保护、非手部/损坏数据、混合 Anchor、无关移除和实际 Camera Page 的光标显示/移动/Grab。此前测试大多省略 confidence 或使用 0.9，未覆盖此原生数据兼容性风险。
+
+修复后全量 204 项前端测试与小程序 TypeScript 检查通过；相机正常但无光标的页面级夹具已从失败变为通过。此结果不代替目标手机重新预览验收。本轮不需要重启后端，手部追踪运行在手机 VisionKit 中。
+
 ## Current Gesture Pipeline（修改前）
 
 `VisionKit addAnchors/updateAnchors → 21 landmarks → aspect-corrected pinch normalization → One Euro cursor → 2-frame hysteresis → pre-pinch history selection → SpatialController → Camera setData`

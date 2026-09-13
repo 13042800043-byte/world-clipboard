@@ -31,6 +31,7 @@ import { createVisionKitCameraRenderer } from '../../vision/visionkit-camera-ren
 import { VisionKitHandSession } from '../../vision/visionkit-hand-session'
 import {
   VisionKitHandGestureAdapter,
+  isVisionKitHandAnchor,
   type VisionKitHandAnchor,
 } from '../../vision/visionkit-hand-tracker'
 
@@ -80,6 +81,7 @@ let cursorVelocity = 0
 let handVelocity = 0
 const gestureTelemetry = new GestureTelemetry(APP_CONFIG.DEBUG_MODE && VISION_CONFIG.showCoordinateDebug)
 let lastDebugRenderAt = -Infinity
+let lastHandHealthAt = -Infinity
 
 Page({
   data: {
@@ -136,6 +138,7 @@ Page({
     }
     lastSpatialRenderAt = 0
     lastDebugRenderAt = -Infinity
+    lastHandHealthAt = -Infinity
     this.setData({
       cursorX: 0.5,
       cursorY: 0.56,
@@ -295,6 +298,7 @@ Page({
             onFrame: this.data.coordinateDebug ? (at, timestampNs) => gestureTelemetry.recordCameraFrame(at, timestampNs) : undefined,
             onReady: () => {
               if (startGeneration !== visionStartGeneration || !pageVisible) return
+              if (APP_CONFIG.DEBUG_MODE) console.info('WORLD_CLIPBOARD_HAND', { event: 'session-ready', profile: GESTURE_PROFILE, confidenceGate: VISION_CONFIG.useConfidenceGate })
               if (visionStartTimeout) clearTimeout(visionStartTimeout)
               visionStartTimeout = undefined
               visionKitStarting = false
@@ -368,13 +372,20 @@ Page({
     const windowInfo = wx.getWindowInfo()
     const now = observation?.receivedAt ?? Date.now()
     if (resumeOnNextHand) {
-      if (!anchor || anchor.points.length < 21 || !anchor.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) return
+      if (!isVisionKitHandAnchor(anchor)) return
       resumeOnNextHand = false
       if (captureHandTimer) clearTimeout(captureHandTimer)
       captureHandTimer = undefined
       visionGestureAdapter.resumeAfterCapture(now - 1)
     }
     const result = visionGestureAdapter.update(anchor, false, now, windowInfo.windowWidth / windowInfo.windowHeight)
+    if (APP_CONFIG.DEBUG_MODE && now - lastHandHealthAt >= 2000) {
+      lastHandHealthAt = now
+      console.info('WORLD_CLIPBOARD_HAND', { event: 'observation', points: anchor?.points?.length ?? 0,
+        score: anchor?.score, confidenceCount: anchor?.confidence?.length ?? 0, confidence: result.confidence,
+        accepted: result.accepted, reason: result.qualityReason, phase: result.phase, tracking: result.tracking,
+        pinchDistance: Number.isFinite(result.hand.pinchDistance) ? result.hand.pinchDistance : null })
+    }
     const sample = gestureTelemetry.record(result, now, Date.now(), spatialController.isDragging() ? spatialController.getDragDistance(result.hand.cursor) : 0)
     if (this.data.coordinateDebug && now - lastDebugRenderAt >= VISION_CONFIG.debugUpdateIntervalMs) {
       lastDebugRenderAt = now

@@ -33,7 +33,7 @@ describe('round 2 predictable gesture timing', () => {
   });
 
   it('retains the rejected confidence for diagnostics, including before the first valid hand', () => {
-    const adapter = new VisionKitHandGestureAdapter();
+    const adapter = new VisionKitHandGestureAdapter({ ...GESTURE_PROFILES.stable, useConfidenceGate: true });
     const confidence = Array(21).fill(.9); confidence[8] = .1;
     const result = adapter.update({ ...handAt(.2), score: .95, confidence }, false, 0);
     expect(result.confidence).toBe(.1);
@@ -102,7 +102,7 @@ describe('round 2 predictable gesture timing', () => {
   });
 
   it('gates weak observations, retains grab briefly, and never releases on tracking loss', () => {
-    const adapter = new VisionKitHandGestureAdapter();
+    const adapter = new VisionKitHandGestureAdapter({ ...GESTURE_PROFILES.stable, useConfidenceGate: true });
     const weak = { ...handAt(.2), score: .1 };
     for (const at of [0, 40, 80]) expect(adapter.update(weak, false, at).pinch).toBeUndefined();
     adapter.update(handAt(.2), false, 120);

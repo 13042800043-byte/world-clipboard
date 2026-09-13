@@ -6,6 +6,23 @@ import {
 import type { VisionKitHandAnchor } from '../../miniprogram/vision/visionkit-hand-tracker';
 
 describe('VisionKit hand session', () => {
+  it('selects the hand from mixed anchors and ignores removal of an unrelated anchor', () => {
+    const listeners = new Map<string, (anchors: any[]) => void>();
+    const onHand = vi.fn();
+    const session = new VisionKitHandSession(() => ({ start: done => done(),
+      on: (event, cb) => listeners.set(event, cb), requestAnimationFrame: () => 1, getVKFrame: () => undefined }));
+    session.start({ width: 1, height: 1 }, { render() {}, dispose() {} }, { onHand, onReady() {}, onError() {} });
+    const hand = { ...createAnchor(), type: 7, id: 10 };
+    listeners.get('updateAnchors')?.([{ type: 0, id: 2 }, hand]);
+    expect(onHand).toHaveBeenLastCalledWith(hand, expect.anything());
+    onHand.mockClear();
+    listeners.get('updateAnchors')?.([{ type: 0, id: 2 }]);
+    listeners.get('removeAnchors')?.([{ type: 0, id: 2 }]);
+    expect(onHand).not.toHaveBeenCalled();
+    listeners.get('removeAnchors')?.([{ id: 10 }]);
+    expect(onHand).toHaveBeenCalledWith(undefined, expect.anything());
+    session.stop();
+  });
   it('preserves target camera cadence and forwards native timestamps without inventing anchor timestamps', () => {
     let next: (at: number) => void = () => {};
     let timestamp = 0;
